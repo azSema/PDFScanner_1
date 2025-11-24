@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import PDFKit
+import UniformTypeIdentifiers
 
 struct EditorView: View {
     
@@ -8,6 +9,9 @@ struct EditorView: View {
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
     @StateObject private var editService = EditService()
+    
+    // State for PhotosPicker (only for Add Image tool)
+    @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
     
     var body: some View {
         ZStack {
@@ -74,6 +78,53 @@ struct EditorView: View {
                                     Spacer()
                                 }
                             }
+                            
+                            // Image overlay when active
+                            if let imageAnnotation = editService.activeImageOverlay {
+                                ImageOverlay(
+                                    editService: editService,
+                                    annotation: Binding<IdentifiablePDFAnnotation>(
+                                        get: { editService.activeImageOverlay ?? imageAnnotation },
+                                        set: { editService.activeImageOverlay = $0 }
+                                    ),
+                                    geometry: geometry
+                                )
+                                .onTapGesture(count: 2) {
+                                    // Double tap to finalize image
+                                    print("👆 Double tap - finalizing image")
+                                    editService.finalizeImageOverlay()
+                                }
+                                
+                                // Image overlay instruction
+                                VStack {
+                                    HStack {
+                                        Spacer()
+                                        VStack(spacing: 8) {
+                                            Text("Position your image")
+                                                .font(.medium(14))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 8)
+                                                .background(Color.black.opacity(0.7))
+                                                .cornerRadius(8)
+                                            
+                                            Button("Done") {
+                                                editService.finalizeImageOverlay()
+                                            }
+                                            .font(.medium(14))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(Color.appPrimary)
+                                            .cornerRadius(8)
+                                        }
+                                        .padding(.top, 20)
+                                        .padding(.trailing, 16)
+                                        Spacer()
+                                    }
+                                    Spacer()
+                                }
+                            }
                         }
                     }
                     .pdfDocumentFrame(
@@ -88,6 +139,17 @@ struct EditorView: View {
                     if editService.showingHighlightPanel {
                         HighlightPanel(editService: editService)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    
+                    // Page Indicator (appears above toolbar)
+                    if editService.isToolbarVisible {
+                        HStack {
+                            Spacer()
+                            PageIndicator(editService: editService)
+                            Spacer()
+                        }
+                        .padding(.bottom, 8)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                     
                     // Editor Toolbar
@@ -182,10 +244,28 @@ struct EditorView: View {
         }
         .photosPicker(
             isPresented: $editService.showingImagePicker,
-            selection: .constant([]),
+            selection: $selectedPhotosPickerItems,
             maxSelectionCount: 1,
             matching: .images
         )
+        .onChange(of: selectedPhotosPickerItems) { newItems in
+            // Handle selected images for Add Image tool only
+            guard let item = newItems.first else { return }
+            
+            Task {
+                // Convert PhotosPickerItem to UIImage
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    
+                    DispatchQueue.main.async {
+                        // Create image overlay for positioning
+                        editService.createImageOverlay(with: image)
+                        editService.showingImagePicker = false
+                        selectedPhotosPickerItems = []
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $editService.showingSignatureCreator) {
             SignatureCreatorView { signature in
                 editService.saveSignature(signature)
@@ -194,6 +274,34 @@ struct EditorView: View {
                 editService.showingSignatureCreator = false
             }
         }
+        .fileImporter(
+            isPresented: $editService.showingFileImporter,
+            allowedContentTypes: [.pdf], // Only PDF files
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                
+                // Load PDF file data and add pages to current document
+                if url.startAccessingSecurityScopedResource() {
+                    defer { url.stopAccessingSecurityScopedResource() }
+                    
+                    if let data = try? Data(contentsOf: url) {
+                        editService.addPageToDocument(from: data)
+                    }
+                }
+                
+            case .failure(let error):
+                print("File import error: \(error)")
+            }
+        }
+        .photosPicker(
+            isPresented: $editService.showingImagePicker,
+            selection: $selectedPhotosPickerItems,
+            maxSelectionCount: 1,
+            matching: .images
+        )
         .animation(.easeInOut(duration: 0.3), value: editService.showingHighlightPanel)
         .animation(.easeInOut(duration: 0.3), value: editService.isToolbarVisible)
     }

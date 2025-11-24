@@ -29,6 +29,14 @@ final class EditService: ObservableObject {
     @Published var signatureService = SignatureService()
     @Published var activeSignatureOverlay: IdentifiablePDFAnnotation? = nil
     
+    // Image overlay state
+    @Published var currentImage: UIImage?
+    @Published var activeImageOverlay: IdentifiablePDFAnnotation? = nil
+    
+    // Add page functionality
+    @Published var showingAddPageActionSheet = false
+    @Published var showingFileImporter = false
+    
     // Document state
     @Published var hasUnsavedChanges = false
     @Published var isProcessing = false
@@ -138,7 +146,12 @@ final class EditService: ObservableObject {
         case .highlight:
             showingHighlightPanel = true
         case .addImage:
-            showingImageInsertMode = true
+            // Show image picker for user to select image
+            showingImagePicker = true
+            print("🖼️ Showing image picker")
+            
+            // DEBUG: Uncomment line below to test with sample image instead of photo picker
+            // testCreateImageOverlay()
         case .signature:
             if currentSignature == nil {
                 // No signature - open creator
@@ -159,6 +172,16 @@ final class EditService: ObservableObject {
         showingHighlightPanel = false
         showingImageInsertMode = false
         showingSignatureInsertMode = false
+        
+        // Clear active overlays
+        activeSignatureOverlay = nil
+        activeImageOverlay = nil
+        currentSignature = nil
+        currentImage = nil
+        
+        // Clear add page states
+        showingAddPageActionSheet = false
+        showingFileImporter = false
     }
     
     // MARK: - Highlight Tools (via AnnotationsService)
@@ -180,22 +203,148 @@ final class EditService: ObservableObject {
     
     // MARK: - Image Tools
     
-    func insertImage(_ image: UIImage, at point: CGPoint) {
-        guard selectedTool == .addImage,
-              pdfDocument != nil else { return }
+    /// Creates an interactive overlay for image positioning before final placement in PDF
+    /// Uses the same coordinate system and overlay approach as signatures for consistent UX
+    func createImageOverlay(with image: UIImage) {
+        guard let document = pdfDocument,
+              let page = document.page(at: currentPageIndex) else {
+            print("❌ Failed to create image overlay - no document/page")
+            return
+        }
         
-        let geometrySize = insertionGeometry != .zero ? insertionGeometry : CGSize(width: 400, height: 600)
-        annotationsService.addImageAnnotation(image: image, at: point, in: geometrySize)
+        print("✨ Creating image overlay")
+        
+        // Calculate center position in PDF coordinates
+        let pageRect = page.bounds(for: .mediaBox)
+        let centerX = pageRect.width / 2
+        let centerY = pageRect.height / 2
+        
+        // Calculate image bounds (компактный начальный размер для лучшего UX)
+        let desiredMaxWidth: CGFloat = 120   
+        let desiredMaxHeight: CGFloat = 120   
+        
+        let imageSize = image.size
+        let scaleX = desiredMaxWidth / imageSize.width
+        let scaleY = desiredMaxHeight / imageSize.height
+        let scale = min(scaleX, scaleY, 0.6) // Компактный начальный размер
+        
+        let finalWidth = imageSize.width * scale
+        let finalHeight = imageSize.height * scale
+        
+        print("📏 Image sizing: image(\(imageSize)) → final(\(finalWidth)x\(finalHeight)) scale(\(scale))")
+        
+        // Create annotation bounds centered on page
+        let bounds = CGRect(
+            x: centerX - finalWidth / 2,
+            y: centerY - finalHeight / 2,
+            width: finalWidth,
+            height: finalHeight
+        )
+        
+        // Create image annotation but DON'T add to page yet
+        let imageAnnotation = ImageAnnotation(bounds: bounds, image: image)
+        
+        // Create identifiable annotation for overlay
+        let identifiableAnnotation = IdentifiablePDFAnnotation(
+            annotation: imageAnnotation,
+            position: CGPoint(x: centerX, y: centerY),
+            midPosition: CGPoint(x: 0.5, y: 0.5), // Normalized center - will be converted to view coordinates
+            boundingBox: bounds,
+            scale: 0.3  // Компактный начальный размер - пользователь может увеличить при необходимости
+        )
+        
+        // Set as active overlay (don't add to annotationsService yet)
+        activeImageOverlay = identifiableAnnotation
+        currentImage = image
         
         hasUnsavedChanges = true
+        
+        print("📸 Image overlay created and ready for positioning")
+    }
+    
+    func finalizeImageOverlay() {
+        guard let overlay = activeImageOverlay,
+              let page = currentPage else {
+            print("❌ Cannot finalize image overlay - no overlay or page")
+            return
+        }
+        
+        print("✅ Finalizing image overlay")
+        print("🔍 Before finalize - overlay bounds: \(overlay.annotation.bounds)")
+        print("🔍 Before finalize - overlay midPosition: \(overlay.midPosition)")
+        print("🔍 Before finalize - overlay scale: \(overlay.scale)")
+        
+        // Add the annotation to the PDF page
+        page.addAnnotation(overlay.annotation)
+        objectWillChange.send()  // Force UI update
+        
+        print("📄 Image finalized at PDF bounds: \(overlay.annotation.bounds)")
+        
+        // Clear the overlay after a short delay to allow PDF rendering
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.activeImageOverlay = nil
+            self?.currentImage = nil
+            print("🔄 Image overlay cleared after PDF render")
+        }
+        
+        hasUnsavedChanges = true
+    }
+    
+    func cancelImageOverlay() {
+        activeImageOverlay = nil
+        currentImage = nil
+        print("❌ Image overlay cancelled")
+    }
+    
+    func insertImage(_ image: UIImage, at point: CGPoint) {
+        // Instead of direct insertion, create overlay for positioning
+        print("🖼️ Creating image overlay instead of direct insertion")
+        createImageOverlay(with: image)
         showingImageInsertMode = false
-        selectedTool = nil
-        insertionPoint = .zero
     }
     
     func insertImageAtStoredPoint(_ image: UIImage) {
-        guard insertionPoint != .zero else { return }
-        insertImage(image, at: insertionPoint)
+        // Instead of direct insertion, create overlay for positioning
+        print("🖼️ Creating image overlay from stored point")
+        createImageOverlay(with: image)
+        insertionPoint = .zero
+    }
+    
+    // Test method to create image overlay with a sample image
+    func testCreateImageOverlay() {
+        // Create a simple test image with better visual appearance
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 300, height: 200))
+        let testImage = renderer.image { ctx in
+            // Background gradient
+            let colors = [UIColor.systemBlue.cgColor, UIColor.systemPurple.cgColor]
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: nil)!
+            
+            ctx.cgContext.drawLinearGradient(gradient, 
+                                           start: CGPoint(x: 0, y: 0), 
+                                           end: CGPoint(x: 300, y: 200), 
+                                           options: [])
+            
+            // Add frame
+            ctx.cgContext.setStrokeColor(UIColor.white.cgColor)
+            ctx.cgContext.setLineWidth(4)
+            ctx.cgContext.stroke(CGRect(x: 2, y: 2, width: 296, height: 196))
+            
+            // Add text
+            let text = "Sample Image"
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 28, weight: .bold),
+                .foregroundColor: UIColor.white
+            ]
+            
+            let textSize = text.size(withAttributes: attributes)
+            let textX = (300 - textSize.width) / 2
+            let textY = (200 - textSize.height) / 2
+            
+            text.draw(at: CGPoint(x: textX, y: textY), withAttributes: attributes)
+        }
+        
+        createImageOverlay(with: testImage)
     }
     
     func cancelImageInsertion() {
@@ -385,6 +534,133 @@ final class EditService: ObservableObject {
         
         currentPageIndex = index
         annotationsService.updateCurrentPage(currentPageIndex)
+    }
+    
+    // MARK: - Add Page Functionality
+    
+    func showAddPageOptions() {
+        showingFileImporter = true // Directly show file importer since it's the only option
+        print("📄 Opening file importer for adding PDF pages")
+    }
+    
+    func addPageFromFiles() {
+        showingFileImporter = true
+        print("📁 Opening file importer for new page")
+    }
+    
+    func addPageToDocument(from image: UIImage) {
+        guard let document = pdfDocument else {
+            print("❌ No document available for adding page")
+            return
+        }
+        
+        print("📄 Adding new page to document")
+        
+        // Create a new PDF page from the image  
+        let newPage = PDFPage(image: image)
+        
+        guard let newPage = newPage else {
+            print("❌ Failed to create PDF page from image")
+            return
+        }
+        
+        // Add the new page to the document
+        document.insert(newPage, at: document.pageCount)
+        
+        // Navigate to the new page
+        currentPageIndex = document.pageCount - 1
+        annotationsService.updateCurrentPage(currentPageIndex)
+        
+        // Mark as having unsaved changes
+        hasUnsavedChanges = true
+        
+        print("✅ Added new page successfully. Total pages: \(document.pageCount)")
+        print("📍 Navigated to page \(currentPageIndex + 1)")
+    }
+    
+    func addPageToDocument(from data: Data) {
+        // Try to determine if it's a PDF or image
+        if data.starts(with: [0x25, 0x50, 0x44, 0x46]) { // PDF magic bytes "%PDF"
+            // It's a PDF file
+            addPagesFromPDF(data: data)
+        } else {
+            // Try to create image
+            guard let image = UIImage(data: data) else {
+                print("❌ Failed to create image from data")
+                return
+            }
+            addPageToDocument(from: image)
+        }
+    }
+    
+    private func addPagesFromPDF(data: Data) {
+        guard let sourcePDF = PDFDocument(data: data) else {
+            print("❌ Failed to create PDF document from data")
+            return
+        }
+        
+        guard let currentDocument = pdfDocument else {
+            print("❌ No current document available for adding pages")
+            return
+        }
+        
+        let pageCount = sourcePDF.pageCount
+        print("📄 Adding \(pageCount) pages from PDF to current document")
+        
+        // Add all pages from source PDF to current document
+        for pageIndex in 0..<pageCount {
+            guard let page = sourcePDF.page(at: pageIndex) else {
+                print("❌ Failed to get page \(pageIndex) from source PDF")
+                continue
+            }
+            
+            // Insert page at the end of current document
+            currentDocument.insert(page, at: currentDocument.pageCount)
+            print("✅ Added page \(pageIndex + 1)/\(pageCount)")
+        }
+        
+        // Navigate to the first newly added page
+        currentPageIndex = currentDocument.pageCount - pageCount
+        annotationsService.updateCurrentPage(currentPageIndex)
+        
+        // Mark as having unsaved changes and update storage
+        hasUnsavedChanges = true
+        
+        // Update the document in storage
+        Task {
+            await updateDocumentInStorage()
+        }
+        
+        print("✅ Added \(pageCount) pages successfully. Total pages: \(currentDocument.pageCount)")
+        print("📍 Navigated to page \(currentPageIndex + 1)")
+    }
+    
+    private func updateDocumentInStorage() async {
+        guard let documentId = documentId,
+              let pdfStorage = pdfStorage,
+              let currentDocument = pdfDocument else {
+            print("❌ Missing required components for storage update")
+            return
+        }
+        
+        // Find the document in storage
+        guard let documentIndex = pdfStorage.documents.firstIndex(where: { $0.id == documentId.uuidString }) else {
+            print("❌ Document not found in storage")
+            return
+        }
+        
+        // Update the PDF document
+        var updatedDocument = pdfStorage.documents[documentIndex]
+        updatedDocument.pdf = currentDocument
+        updatedDocument.date = Date()  // Update date instead of modifiedDate
+        
+        do {
+            // Save the updated document
+            try await pdfStorage.saveDocument(updatedDocument)
+            print("✅ Document updated in storage successfully")
+        } catch {
+            print("❌ Failed to update document in storage: \(error)")
+        }
     }
     
     // MARK: - Save Changes

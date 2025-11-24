@@ -489,4 +489,143 @@ private func saveSignatureOnly() {
 3. **Улучшенный UX**: автопереход на вкладку "Saved" после сохранения
 4. **Clear feedback**: подтверждение успешного сохранения
 
-**Примечание**: Эта архитектура обеспечивает точное позиционирование подписей в PDF с поддержкой различных размеров документов, поворотов страниц и display configurations.
+---
+
+## 📄 Новая функция: Добавление страниц (декабрь 2024)
+
+### Компактный индикатор страниц
+
+#### PageIndicator компонент
+```swift
+// Отображается над тулбаром
+HStack {
+    Text("Page").font(.regular(12)).foregroundColor(.appSecondary)
+    Text("\(currentPageIndex + 1) / \(pageCount)").font(.medium(14))
+    
+    // Кнопка "Add Page" появляется только на последней странице
+    if editService.currentPageIndex == document.pageCount - 1 {
+        Button("+ Add Page") { 
+            editService.showAddPageOptions() 
+        }
+    }
+}
+.background(Color.appSurface.opacity(0.9))
+.cornerRadius(20)
+```
+
+#### Интеграция в EditorView
+```swift
+// Располагается между PDF и тулбаром
+if editService.isToolbarVisible {
+    HStack {
+        Spacer()
+        PageIndicator(editService: editService)  // Компактно по центру
+        Spacer()
+    }
+    .padding(.bottom, 8)
+}
+```
+
+### Добавление новых страниц
+
+#### AddPageActionSheet компонент
+```swift
+VStack {
+    Text("Add New Page").font(.semiBold(20))
+    
+    // Три опции добавления:
+    Button("Scan with Camera") { editService.addPageFromCamera() }
+    Button("Import from Files") { editService.addPageFromFiles() }  
+    Button("Choose from Photos") { editService.addPageFromPhotos() }
+}
+.presentationDetents([.fraction(0.6)])  // Половина экрана
+```
+
+#### EditService методы
+```swift
+// Показать опции добавления страницы
+func showAddPageOptions() {
+    showingAddPageActionSheet = true
+}
+
+// Добавить страницу из изображения
+func addPageToDocument(from image: UIImage) {
+    let newPage = PDFPage(image: image)
+    document.insert(newPage, at: document.pageCount)
+    
+    // Автопереход на новую страницу
+    currentPageIndex = document.pageCount - 1
+    annotationsService.updateCurrentPage(currentPageIndex)
+    
+    hasUnsavedChanges = true
+}
+```
+
+#### Три способа добавления страниц
+
+1. **Camera Scan** 📸
+```swift
+.sheet(isPresented: $editService.showingCameraScan) {
+    // TODO: Интеграция с камерой для сканирования
+    CameraScanView()
+}
+```
+
+2. **File Import** 📁  
+```swift
+.fileImporter(
+    isPresented: $editService.showingFileImporter,
+    allowedContentTypes: [.image, .pdf]
+) { result in
+    if let url = result.success?.first,
+       let data = try? Data(contentsOf: url) {
+        editService.addPageToDocument(from: data)
+    }
+}
+```
+
+3. **Photos Library** 🖼️
+```swift
+.photosPicker(
+    isPresented: $editService.showingPhotosPicker,
+    selection: $selectedPhotosPickerItems,
+    matching: .images
+)
+.onChange(of: selectedPhotosPickerItems) { 
+    // Добавляет выбранное изображение как новую страницу
+    editService.addPageToDocument(from: image)
+}
+```
+
+### Обновленный UI/UX
+
+#### Упрощенный тулбар
+```swift
+// Убрали отображение страниц из тулбара - теперь только стрелки
+HStack(spacing: 16) {
+    Button { editService.goToPreviousPage() } {
+        Image(systemName: "chevron.left").font(.medium(18))
+    }
+    
+    Button { editService.goToNextPage() } {  
+        Image(systemName: "chevron.right").font(.medium(18))
+    }
+}
+```
+
+#### Улучшенная навигация
+- ✅ **Компактный индикатор** страниц над тулбаром
+- ✅ **Кнопка добавления** появляется только на последней странице  
+- ✅ **Три способа** добавления: камера, файлы, фото
+- ✅ **Автонавигация** на новую страницу после добавления
+- ✅ **Упрощенный тулбар** только с навигационными стрелками
+
+### Workflow использования
+
+1. **Навигация по страницам** → используй стрелки в тулбаре ⬅️➡️
+2. **На последней странице** → появляется кнопка "+ Add Page" 
+3. **Выбери способ добавления** → камера/файлы/фото 📸📁🖼️
+4. **Автопереход** → на только что добавленную страницу ✅
+5. **Продолжай редактирование** → на новой странице 🎯
+
+**Примечание**: Теперь индикатор страниц отображается компактно над тулбаром, а функция добавления страниц доступна интуитивно когда действительно нужна (на последней странице).

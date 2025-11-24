@@ -20,23 +20,19 @@ struct EditorToolbar: View {
             
             Spacer()
             
-            // Page navigation
+            // Page navigation (simplified - just arrows)
             if let document = editService.pdfDocument {
-                HStack(spacing: 12) {
+                HStack(spacing: 16) {
                     Button(action: { editService.goToPreviousPage() }) {
                         Image(systemName: "chevron.left")
-                            .font(.medium(16))
+                            .font(.medium(18))
                             .foregroundColor(.appText)
                     }
                     .disabled(editService.currentPageIndex == 0)
                     
-                    Text("\(editService.currentPageIndex + 1) / \(document.pageCount)")
-                        .font(.medium(14))
-                        .foregroundColor(.appSecondary)
-                    
                     Button(action: { editService.goToNextPage() }) {
                         Image(systemName: "chevron.right")
-                            .font(.medium(16))
+                            .font(.medium(18))
                             .foregroundColor(.appText)
                     }
                     .disabled(editService.currentPageIndex >= document.pageCount - 1)
