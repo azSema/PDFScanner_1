@@ -3,6 +3,20 @@ import PDFKit
 import SwiftUI
 import Combine
 
+struct DocumentMetadata: Codable {
+    let id: String
+    var name: String
+    var isFavorite: Bool
+    let dateCreated: Date
+    
+    init(id: String, name: String, isFavorite: Bool = false, dateCreated: Date = Date()) {
+        self.id = id
+        self.name = name
+        self.isFavorite = isFavorite
+        self.dateCreated = dateCreated
+    }
+}
+
 @MainActor
 final class PDFStorage: ObservableObject {
     
@@ -11,10 +25,13 @@ final class PDFStorage: ObservableObject {
     
     private let fileManager = FileManager.default
     private let documentsDirectory: URL
+    private let metadataDirectory: URL
     
     init() {
         documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("PDFScanner", isDirectory: true)
+        
+        metadataDirectory = documentsDirectory.appendingPathComponent("Metadata", isDirectory: true)
         
         createDocumentsDirectoryIfNeeded()
         loadDocuments()
@@ -29,20 +46,31 @@ final class PDFStorage: ObservableObject {
     
     func removeDocument(_ document: DocumentDTO) {
         documents.removeAll { $0.id == document.id }
-        // TODO: Also remove from file system
+        
+        // Remove PDF file
         if let url = document.url, url.path.contains("PDFScanner") {
             try? fileManager.removeItem(at: url)
         }
+        
+        // Remove metadata file
+        let metadataURL = metadataDirectory.appendingPathComponent("\(document.id).json")
+        try? fileManager.removeItem(at: metadataURL)
     }
     
     func toggleFavorite(_ document: DocumentDTO) {
         guard let index = documents.firstIndex(where: { $0.id == document.id }) else { return }
         documents[index].isFavorite.toggle()
+        
+        // Update metadata
+        try? saveDocumentMetadata(documents[index])
     }
     
     func renameDocument(_ document: DocumentDTO, to newName: String) {
         guard let index = documents.firstIndex(where: { $0.id == document.id }) else { return }
         documents[index].name = newName
+        
+        // Update metadata
+        try? saveDocumentMetadata(documents[index])
     }
     
     func saveDocument(_ document: DocumentDTO) async throws {
@@ -61,6 +89,9 @@ final class PDFStorage: ObservableObject {
         // Update document with file URL
         var updatedDocument = document
         updatedDocument.url = fileURL
+        
+        // Save metadata
+        try saveDocumentMetadata(updatedDocument)
         
         // Add or update in documents array
         if let index = documents.firstIndex(where: { $0.id == document.id }) {
@@ -102,22 +133,33 @@ final class PDFStorage: ObservableObject {
                 withIntermediateDirectories: true
             )
         }
+        
+        if !fileManager.fileExists(atPath: metadataDirectory.path) {
+            try? fileManager.createDirectory(
+                at: metadataDirectory,
+                withIntermediateDirectories: true
+            )
+        }
     }
     
     private func createDocumentFromFile(at url: URL) -> DocumentDTO? {
         guard let pdfDocument = PDFDocument(url: url) else { return nil }
         
+        let documentId = url.deletingPathExtension().lastPathComponent
         let attributes = try? fileManager.attributesOfItem(atPath: url.path)
         let creationDate = attributes?[.creationDate] as? Date ?? Date()
         
+        // Load metadata if exists, otherwise use filename
+        let metadata = loadDocumentMetadata(for: documentId)
+        
         return DocumentDTO(
-            id: url.deletingPathExtension().lastPathComponent,
+            id: documentId,
             pdf: pdfDocument,
-            name: url.deletingPathExtension().lastPathComponent,
+            name: metadata?.name ?? url.deletingPathExtension().lastPathComponent,
             type: .pdf,
-            date: creationDate,
+            date: metadata?.dateCreated ?? creationDate,
             url: url,
-            isFavorite: false
+            isFavorite: metadata?.isFavorite ?? false
         )
     }
     
@@ -158,6 +200,32 @@ final class PDFStorage: ObservableObject {
         )
         
         documents.append(mockDocument)
+    }
+    
+    // MARK: - Metadata Management
+    
+    private func saveDocumentMetadata(_ document: DocumentDTO) throws {
+        let metadata = DocumentMetadata(
+            id: document.id,
+            name: document.name,
+            isFavorite: document.isFavorite,
+            dateCreated: document.date
+        )
+        
+        let metadataURL = metadataDirectory.appendingPathComponent("\(document.id).json")
+        let data = try JSONEncoder().encode(metadata)
+        try data.write(to: metadataURL)
+    }
+    
+    private func loadDocumentMetadata(for documentId: String) -> DocumentMetadata? {
+        let metadataURL = metadataDirectory.appendingPathComponent("\(documentId).json")
+        
+        guard let data = try? Data(contentsOf: metadataURL),
+              let metadata = try? JSONDecoder().decode(DocumentMetadata.self, from: data) else {
+            return nil
+        }
+        
+        return metadata
     }
 }
 

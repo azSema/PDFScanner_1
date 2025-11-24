@@ -4,22 +4,19 @@ struct MergeView: View {
     
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
-    
-    @State private var mergeState: MergeState = .selectDocuments
-    @State private var selectedDocuments: Set<String> = []
-    @State private var arrangedDocuments: [DocumentDTO] = []
-    @State private var draggedItem: DocumentDTO?
-    @State private var dragOffset: CGSize = .zero
+    @StateObject private var viewModel = MergeViewModel()
     
     var body: some View {
         Group {
-            switch mergeState {
+            switch viewModel.currentState {
             case .selectDocuments:
                 documentSelectionView
             case .arrangeOrder:
                 orderArrangementView
             case .processing:
                 processingView
+            default:
+                emptyView
             }
         }
         .navigationTitle("Merge Documents")
@@ -28,6 +25,10 @@ struct MergeView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 trailingButton
             }
+        }
+        .onAppear {
+            viewModel.router = router
+            viewModel.startMerge()
         }
     }
     
@@ -48,11 +49,18 @@ struct MergeView: View {
     }
     
     private var headerView: some View {
-        Text("Choose 2 or more documents")
-            .font(.regular(14))
-            .foregroundColor(.appSecondary)
-            .padding(.horizontal, 24)
-            .padding(.top, 16)
+        VStack(spacing: 8) {
+            Text("Select documents to merge")
+                .font(.medium(16))
+                .foregroundColor(.appSecondary)
+                .multilineTextAlignment(.center)
+            
+            Text("Choose 2 or more documents")
+                .font(.regular(14))
+                .foregroundColor(.appSecondary)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 16)
     }
     
     private var documentsList: some View {
@@ -61,9 +69,9 @@ struct MergeView: View {
                 ForEach(pdfStorage.documents, id: \.id) { document in
                     DocumentSelectionCell(
                         document: document,
-                        isSelected: selectedDocuments.contains(document.id),
+                        isSelected: viewModel.selectedDocuments.contains(document.id),
                         onSelectionToggle: {
-                            toggleSelection(for: document)
+                            viewModel.toggleDocumentSelection(for: document.id)
                         }
                     )
                 }
@@ -76,27 +84,33 @@ struct MergeView: View {
     // MARK: - Order Arrangement View
     private var orderArrangementView: some View {
         VStack(spacing: 0) {
-            Text("Drag documents to reorder them")
-                .font(.regular(14))
-                .foregroundColor(.appSecondary)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
+            VStack(spacing: 8) {
+                Text("Arrange merge order")
+                    .font(.medium(16))
+                    .foregroundColor(.appSecondary)
+                
+                Text("Drag documents to reorder them")
+                    .font(.regular(14))
+                    .foregroundColor(.appSecondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
             
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(Array(arrangedDocuments.enumerated()), id: \.element.id) { index, document in
+                    ForEach(Array(viewModel.arrangedDocuments.enumerated()), id: \.element.id) { index, document in
                         DraggableDocumentCell(
                             document: document,
                             position: index + 1,
-                            totalCount: arrangedDocuments.count,
-                            draggedItem: $draggedItem,
-                            dragOffset: $dragOffset,
+                            totalCount: viewModel.arrangedDocuments.count,
+                            draggedItem: $viewModel.draggedItem,
+                            dragOffset: $viewModel.dragOffset,
                             onMove: { fromIndex, toIndex in
-                                moveDocument(from: fromIndex, to: toIndex)
+                                viewModel.moveDocument(from: fromIndex, to: toIndex)
                             }
                         )
-                        .zIndex(draggedItem?.id == document.id ? 1 : 0)
-                        .id("\(document.id)-\(index)") // 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ!
+                        .zIndex(viewModel.draggedItem?.id == document.id ? 1 : 0)
+                        .id("\(document.id)-\(index)")
                     }
                 }
                 .padding(.horizontal, 16)
@@ -167,90 +181,29 @@ struct MergeView: View {
     // MARK: - Trailing Button
     @ViewBuilder
     private var trailingButton: some View {
-        switch mergeState {
+        switch viewModel.currentState {
         case .selectDocuments:
             Button("Continue") {
-                handleContinue()
+                viewModel.proceedToArrangeOrder(with: pdfStorage.documents)
             }
             .font(.medium(16))
-            .foregroundColor(selectedDocuments.count >= 2 ? .appPrimary : .appSecondary)
-            .disabled(selectedDocuments.count < 2)
+            .foregroundColor(viewModel.canProceedToArrange ? .appPrimary : .appSecondary)
+            .disabled(!viewModel.canProceedToArrange)
             
         case .arrangeOrder:
             Button("Merge") {
-                handleMerge()
+                viewModel.startMergeProcess()
             }
             .font(.medium(16))
             .foregroundColor(.appPrimary)
             
         case .processing:
             EmptyView()
+            
+        default:
+            EmptyView()
         }
     }
-    
-    // MARK: - Actions
-    private func toggleSelection(for document: DocumentDTO) {
-        if selectedDocuments.contains(document.id) {
-            selectedDocuments.remove(document.id)
-        } else {
-            selectedDocuments.insert(document.id)
-        }
-    }
-    
-    private func moveDocument(from fromIndex: Int, to toIndex: Int) {
-        print("🔄 moveDocument called: from=\(fromIndex), to=\(toIndex)")
-        print("📋 Current documents count: \(arrangedDocuments.count)")
-        
-        guard fromIndex != toIndex,
-              fromIndex < arrangedDocuments.count,
-              toIndex < arrangedDocuments.count else { 
-            print("❌ Move cancelled: fromIndex=\(fromIndex), toIndex=\(toIndex), count=\(arrangedDocuments.count)")
-            return 
-        }
-        
-        let document = arrangedDocuments[fromIndex]
-        print("📱 Moving document: \(document.name)")
-        
-        withAnimation(.easeInOut(duration: 0.25)) {
-            arrangedDocuments.remove(at: fromIndex)
-            arrangedDocuments.insert(document, at: toIndex)
-        }
-        
-        print("✅ Move completed. New order:")
-        for (index, doc) in arrangedDocuments.enumerated() {
-            print("  \(index + 1). \(doc.name)")
-        }
-    }
-    
-    private func handleContinue() {
-        let selectedDocs = pdfStorage.documents.filter { selectedDocuments.contains($0.id) }
-        print("🚀 Moving to arrange stage with \(selectedDocs.count) documents:")
-        for (index, doc) in selectedDocs.enumerated() {
-            print("  \(index + 1). \(doc.name)")
-        }
-        arrangedDocuments = selectedDocs
-        withAnimation(.easeInOut(duration: 0.3)) {
-            mergeState = .arrangeOrder
-        }
-    }
-    
-    private func handleMerge() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            mergeState = .processing
-        }
-        
-        // TODO: Implement actual merge logic
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            router.popToRoot()
-        }
-    }
-}
-
-// MARK: - Merge State
-enum MergeState {
-    case selectDocuments
-    case arrangeOrder
-    case processing
 }
 
 // MARK: - Document Selection Cell

@@ -51,6 +51,7 @@ enum MainRoute: AppDesination {
     case converter
     case editor(documentId: UUID)
     case merge
+    case mergePreview(url: URL, arrangedDocuments: [DocumentDTO])
     case history
     case documentDetail(documentId: UUID)
 
@@ -69,6 +70,8 @@ enum MainRoute: AppDesination {
             EditorView(documentId: documentId)
         case .merge:
             MergeView()
+        case .mergePreview(let url, let arrangedDocuments):
+            MergePreviewView(mergedPDFURL: url, arrangedDocuments: arrangedDocuments)
         case .history:
             HistoryView()
         case .documentDetail(let documentId):
