@@ -45,7 +45,7 @@ struct EditorToolbar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .padding(.bottom, 20)
+        .padding(.bottom, 8)
         .background(Color.appSurface)
         .shadow(color: Color.black.opacity(editService.showingHighlightPanel ? 0 : 0.1), radius: 4, x: 0, y: 2)
     }

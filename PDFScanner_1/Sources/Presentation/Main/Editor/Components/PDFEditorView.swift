@@ -18,6 +18,9 @@ struct PDFEditorView: UIViewRepresentable {
         // Set delegate for interactions
         pdfView.delegate = context.coordinator
         
+        // Set PDFView reference in EditService for coordinate calculations
+        editService.setPDFViewReference(pdfView)
+        
         // Add gesture recognizers and notifications
         setupGestureRecognizers(for: pdfView, coordinator: context.coordinator)
         setupNotifications(for: pdfView, coordinator: context.coordinator)
@@ -33,6 +36,12 @@ struct PDFEditorView: UIViewRepresentable {
             // Go to current page
             if let page = document.page(at: editService.currentPageIndex) {
                 pdfView.go(to: page)
+            }
+            
+            // Log actual PDFView bounds for coordinate debugging
+            print("📐 PDFView actual bounds: \(pdfView.bounds)")
+            if let documentView = pdfView.documentView {
+                print("📐 PDFView documentView bounds: \(documentView.bounds)")
             }
         }
         

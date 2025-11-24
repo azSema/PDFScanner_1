@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import PDFKit
 
 struct EditorView: View {
     
@@ -15,17 +16,73 @@ struct EditorView: View {
             
             if editService.pdfDocument != nil {
                 VStack(spacing: 0) {
-                    // PDF Editor View
+                    // PDF Editor View with Signature Overlay
                     GeometryReader { geometry in
-                        PDFEditorView(editService: editService)
-                            .onReceive(editService.$insertionPoint) { point in
-                                // Handle image insertion when point is set
-                                if editService.showingImagePicker && point != .zero {
-                                    // Store geometry size for coordinate conversion
-                                    editService.insertionGeometry = geometry.size
+                        ZStack {
+                            PDFEditorView(editService: editService)
+                                .onReceive(editService.$insertionPoint) { point in
+                                    // Handle image insertion when point is set
+                                    if editService.showingImagePicker && point != .zero {
+                                        // Store geometry size for coordinate conversion
+                                        editService.insertionGeometry = geometry.size
+                                    }
+                                }
+                            
+                            // Signature overlay when active
+                            if let signatureAnnotation = editService.activeSignatureOverlay {
+                                SignatureOverlay(
+                                    editService: editService,
+                                    annotation: Binding<IdentifiablePDFAnnotation>(
+                                        get: { editService.activeSignatureOverlay ?? signatureAnnotation },
+                                        set: { editService.activeSignatureOverlay = $0 }
+                                    ),
+                                    geometry: geometry
+                                )
+                                .onTapGesture(count: 2) {
+                                    // Double tap to finalize signature
+                                    print("👆 Double tap - finalizing signature")
+                                    editService.finalizeSignatureOverlay()
+                                }
+                                
+                                // Signature overlay instruction
+                                VStack {
+                                    HStack {
+                                        Spacer()
+                                        VStack(spacing: 8) {
+                                            Text("Position your signature")
+                                                .font(.medium(14))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 8)
+                                                .background(Color.black.opacity(0.7))
+                                                .cornerRadius(8)
+                                            
+                                            Button("Done") {
+                                                editService.finalizeSignatureOverlay()
+                                            }
+                                            .font(.medium(14))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(Color.appPrimary)
+                                            .cornerRadius(8)
+                                        }
+                                        .padding(.top, 20)
+                                        .padding(.trailing, 16)
+                                        Spacer()
+                                    }
+                                    Spacer()
                                 }
                             }
+                        }
                     }
+                    .pdfDocumentFrame(
+                        pageRect: editService.currentPage?.bounds(for: .mediaBox) ?? CGRect(x: 0, y: 0, width: 595, height: 842),
+                        rotation: Int(editService.currentPage?.rotation ?? 0),
+                        maxRatio: 0.7
+                    )
+                    
+                    Spacer()
                     
                     // Highlight Panel (appears above toolbar when active)
                     if editService.showingHighlightPanel {
@@ -37,10 +94,8 @@ struct EditorView: View {
                     if editService.isToolbarVisible {
                         EditorToolbar(editService: editService)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
-                            
                     }
                 }
-                .edgesIgnoringSafeArea(.bottom)
             } else {
                 // Loading or error state
                 VStack(spacing: 16) {
@@ -134,6 +189,9 @@ struct EditorView: View {
         .sheet(isPresented: $editService.showingSignatureCreator) {
             SignatureCreatorView { signature in
                 editService.saveSignature(signature)
+            } onCancel: {
+                editService.resetSignatureService()
+                editService.showingSignatureCreator = false
             }
         }
         .animation(.easeInOut(duration: 0.3), value: editService.showingHighlightPanel)
@@ -144,47 +202,6 @@ struct EditorView: View {
         // TODO: Implement unsaved changes alert
         // For now, just pop back
         router.pop()
-    }
-}
-
-// MARK: - Signature Creator View (Placeholder)
-
-struct SignatureCreatorView: View {
-    let onSave: (UIImage) -> Void
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        VStack {
-            Text("Signature Creator")
-                .font(.bold(20))
-                .foregroundColor(.appText)
-            
-            Text("Signature creation UI will be implemented here")
-                .font(.regular(16))
-                .foregroundColor(.appSecondary)
-                .multilineTextAlignment(.center)
-                .padding()
-            
-            Spacer()
-        }
-        .padding()
-        .navigationTitle("Create Signature")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button("Cancel") {
-                    dismiss()
-                }
-            }
-            
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Save") {
-                    // TODO: Save signature
-                    dismiss()
-                }
-                .disabled(true)
-            }
-        }
     }
 }
 

@@ -351,19 +351,23 @@ final class AnnotationsService: ObservableObject {
 struct IdentifiablePDFAnnotation: Identifiable {
     let id = UUID()
     let annotation: PDFAnnotation
-    let position: CGPoint
-    let midPosition: CGPoint
-    let boundingBox: CGRect
-    let scale: CGFloat
+    var position: CGPoint
+    var midPosition: CGPoint
+    var boundingBox: CGRect
+    var scale: CGFloat
 }
 
 // MARK: - Custom Annotation Classes
 
 class CustomImageAnnotation: PDFAnnotation {
-    private let image: UIImage
+    private let _image: UIImage
+    
+    var image: UIImage {
+        return _image
+    }
     
     init(bounds: CGRect, image: UIImage) {
-        self.image = image
+        self._image = image
         super.init(bounds: bounds, forType: .stamp, withProperties: nil)
     }
     
@@ -372,7 +376,7 @@ class CustomImageAnnotation: PDFAnnotation {
     }
     
     override func draw(with box: PDFDisplayBox, in context: CGContext) {
-        guard let cgImage = image.cgImage else { return }
+        guard let cgImage = _image.cgImage else { return }
         
         context.saveGState()
         context.translateBy(x: bounds.minX, y: bounds.minY)
@@ -384,10 +388,14 @@ class CustomImageAnnotation: PDFAnnotation {
 }
 
 class ImageAnnotation: PDFAnnotation {
-    private let image: UIImage
+    private let _image: UIImage
+    
+    var image: UIImage {
+        return _image
+    }
     
     init(bounds: CGRect, image: UIImage) {
-        self.image = image
+        self._image = image
         super.init(bounds: bounds, forType: .stamp, withProperties: nil)
     }
     
@@ -396,14 +404,18 @@ class ImageAnnotation: PDFAnnotation {
     }
     
     override func draw(with box: PDFDisplayBox, in context: CGContext) {
-        guard let cgImage = image.cgImage else { return }
+        guard let cgImage = _image.cgImage else { return }
         
         context.saveGState()
-        context.translateBy(x: bounds.minX, y: bounds.minY)
-        context.scaleBy(x: 1.0, y: -1.0)
-        context.translateBy(x: 0, y: -bounds.height)
-        context.draw(cgImage, in: CGRect(origin: .zero, size: bounds.size))
+        
+        // Draw image exactly within the bounds
+        // bounds.origin is the bottom-left corner in PDF coordinates
+        // bounds.size is the width and height
+        context.draw(cgImage, in: bounds)
+        
         context.restoreGState()
+        
+        print("🎨 ImageAnnotation drawn at exact bounds: \(bounds)")
     }
 }
 

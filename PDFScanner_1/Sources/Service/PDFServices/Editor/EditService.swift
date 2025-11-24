@@ -26,6 +26,8 @@ final class EditService: ObservableObject {
     @Published var showingSignatureCreator = false
     @Published var showingSignatureInsertMode = false
     @Published var currentSignature: UIImage?
+    @Published var signatureService = SignatureService()
+    @Published var activeSignatureOverlay: IdentifiablePDFAnnotation? = nil
     
     // Document state
     @Published var hasUnsavedChanges = false
@@ -37,6 +39,36 @@ final class EditService: ObservableObject {
     private var documentId: UUID?
     private var pdfStorage: PDFStorage?
     private var cancellables = Set<AnyCancellable>()
+    
+    // Store reference to PDFView for coordinate calculations
+    weak var pdfViewRef: PDFView?
+    
+    // MARK: - Computed Properties
+    
+    var currentPage: PDFPage? {
+        return pdfDocument?.page(at: currentPageIndex)
+    }
+    
+    func setPDFViewReference(_ pdfView: PDFView) {
+        self.pdfViewRef = pdfView
+        print("📐 PDFView reference set with bounds: \(pdfView.bounds)")
+    }
+    
+    func getActualPDFDisplaySize() -> (size: CGSize, offset: CGPoint)? {
+        guard let pdfView = pdfViewRef,
+              let page = pdfDocument?.page(at: currentPageIndex) else {
+            return nil
+        }
+        
+        // Get the actual bounds of the PDF page as displayed in the view
+        let pageRect = page.bounds(for: .mediaBox)
+        let displayRect = pdfView.convert(pageRect, from: page)
+        
+        print("📐 PDF page original bounds: \(pageRect)")
+        print("📐 PDF page display bounds: \(displayRect)")
+        
+        return (size: displayRect.size, offset: CGPoint(x: displayRect.origin.x, y: displayRect.origin.y))
+    }
     
     // MARK: - Configuration
     
@@ -109,9 +141,13 @@ final class EditService: ObservableObject {
             showingImageInsertMode = true
         case .signature:
             if currentSignature == nil {
+                // No signature - open creator
                 showingSignatureCreator = true
             } else {
-                showingSignatureInsertMode = true
+                // Has signature - show options
+                // For now, allow creating new signature by reopening creator
+                showingSignatureCreator = true
+                print("🔄 Reopening signature creator for new signature")
             }
         case .rotate:
             // Rotate action happens immediately
@@ -146,7 +182,7 @@ final class EditService: ObservableObject {
     
     func insertImage(_ image: UIImage, at point: CGPoint) {
         guard selectedTool == .addImage,
-              let document = pdfDocument else { return }
+              pdfDocument != nil else { return }
         
         let geometrySize = insertionGeometry != .zero ? insertionGeometry : CGSize(width: 400, height: 600)
         annotationsService.addImageAnnotation(image: image, at: point, in: geometrySize)
@@ -170,15 +206,85 @@ final class EditService: ObservableObject {
     // MARK: - Signature Tools
     
     func saveSignature(_ signature: UIImage) {
+        print("💾 Saving signature and creating overlay")
         currentSignature = signature
         showingSignatureCreator = false
-        showingSignatureInsertMode = true
+        
+        // Create immediate overlay instead of insert mode
+        createSignatureOverlay(with: signature)
+        
+        // Reset signature service for next use
+        signatureService.clearSignature()
+    }
+    
+    func createSignatureOverlay(with signature: UIImage) {
+        guard let document = pdfDocument,
+              let page = document.page(at: currentPageIndex) else {
+            print("❌ Failed to create signature overlay - no document/page")
+            return
+        }
+        
+        print("✨ Creating signature overlay")
+        
+        // Calculate center position in PDF coordinates
+        let pageRect = page.bounds(for: .mediaBox)
+        let centerX = pageRect.width / 2
+        let centerY = pageRect.height / 2
+        
+        // Calculate signature bounds (use actual image size with reasonable scaling)
+        let maxWidth: CGFloat = 200
+        let maxHeight: CGFloat = 100
+        
+        let imageSize = signature.size
+        let scaleX = maxWidth / imageSize.width
+        let scaleY = maxHeight / imageSize.height
+        let scale = min(scaleX, scaleY, 1.0) // Don't scale up
+        
+        let finalWidth = imageSize.width * scale
+        let finalHeight = imageSize.height * scale
+        
+        // Create annotation bounds centered on page
+        // Use same coordinate system as view (no Y-flip here)
+        let bounds = CGRect(
+            x: centerX - finalWidth / 2,
+            y: centerY - finalHeight / 2,
+            width: finalWidth,
+            height: finalHeight
+        )
+        
+        // Create image annotation but DON'T add to page yet
+        let imageAnnotation = ImageAnnotation(bounds: bounds, image: signature)
+        
+        // Create identifiable annotation for overlay
+        // midPosition set to normalized center - will be converted to view coordinates
+        let identifiableAnnotation = IdentifiablePDFAnnotation(
+            annotation: imageAnnotation,
+            position: CGPoint(x: centerX, y: centerY),
+            midPosition: CGPoint(x: 0.5, y: 0.5), // Normalized center - will be converted to view coordinates
+            boundingBox: bounds,
+            scale: 1.0
+        )
+        
+        // Set as active overlay (don't add to annotationsService yet)
+        activeSignatureOverlay = identifiableAnnotation
+        
+        hasUnsavedChanges = true
+        selectedTool = nil // Deselect tool after creating
+        
+        print("✅ Signature overlay created (no Y-flip in bounds)")
+    }
+    
+    func createSignatureFromService() {
+        if let signature = signatureService.generateSignatureImage() {
+            saveSignature(signature)
+        }
     }
     
     func insertSignature(at point: CGPoint, geometrySize: CGSize) {
         guard selectedTool == .signature,
               let signature = currentSignature else { return }
         
+        print("📍 Inserting signature at: \(point)")
         annotationsService.addImageAnnotation(image: signature, at: point, in: geometrySize)
         
         hasUnsavedChanges = true
@@ -189,12 +295,52 @@ final class EditService: ObservableObject {
     func cancelSignatureInsertion() {
         showingSignatureInsertMode = false
         selectedTool = nil
+        activeSignatureOverlay = nil
     }
     
     func clearSignature() {
+        print("🗑️ Clearing signature")
         currentSignature = nil
+        signatureService.clearSignature()
         showingSignatureInsertMode = false
+        activeSignatureOverlay = nil
         selectedTool = nil
+    }
+    
+    func resetSignatureService() {
+        signatureService.clearSignature()
+    }
+    
+    func finalizeSignatureOverlay() {
+        guard let overlay = activeSignatureOverlay,
+              let document = pdfDocument,
+              let page = document.page(at: currentPageIndex) else {
+            print("❌ Cannot finalize signature overlay - missing data")
+            return
+        }
+        
+        print("✅ Finalizing signature overlay")
+        print("🔍 Before finalize - overlay bounds: \(overlay.annotation.bounds)")
+        print("🔍 Before finalize - overlay midPosition: \(overlay.midPosition)")
+        print("🔍 Before finalize - overlay scale: \(overlay.scale)")
+        
+        // Add annotation to PDF page
+        page.addAnnotation(overlay.annotation)
+        
+        // Force PDF document update
+        objectWillChange.send()
+        
+        // Add to annotations service for tracking
+        annotationsService.annotations.append(overlay)
+        
+        // Clear active overlay AFTER a short delay to allow PDF to render
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.activeSignatureOverlay = nil
+            self?.selectedTool = nil
+            print("🔄 Overlay cleared after PDF render")
+        }
+        
+        print("📄 Signature finalized at PDF bounds: \(overlay.annotation.bounds)")
     }
     
     // MARK: - Rotation Tools
