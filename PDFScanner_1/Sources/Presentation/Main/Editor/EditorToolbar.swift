@@ -47,8 +47,7 @@ struct EditorToolbar: View {
         .padding(.vertical, 12)
         .padding(.bottom, 20)
         .background(Color.appSurface)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(editService.showingHighlightPanel ? 0 : 0.1), radius: 4, x: 0, y: 2)
     }
 }
 
@@ -169,7 +168,7 @@ struct HighlightPanel: View {
                                 // Selection border
                                 Circle()
                                     .stroke(
-                                        editService.selectedHighlightColor == color ? 
+                                        editService.selectedHighlightColor == color ?
                                         Color.appText : Color.clear,
                                         lineWidth: 2
                                     )
@@ -178,6 +177,7 @@ struct HighlightPanel: View {
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
                 // Clear mode instruction
                 if editService.selectedHighlightColor.isClearMode {
@@ -214,9 +214,8 @@ struct HighlightPanel: View {
         }
         .padding(16)
         .background(Color.appSurface)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: -2)
     }
+    
 }
 
 #Preview {

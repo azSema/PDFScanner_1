@@ -30,7 +30,6 @@ struct EditorView: View {
                     // Highlight Panel (appears above toolbar when active)
                     if editService.showingHighlightPanel {
                         HighlightPanel(editService: editService)
-                            .padding(.horizontal, 16)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                     
