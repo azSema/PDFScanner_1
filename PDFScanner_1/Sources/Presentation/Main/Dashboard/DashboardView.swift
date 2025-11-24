@@ -246,7 +246,7 @@ extension DashboardView {
                 router.push(.main(.merge)) 
             }),
             createMenuButton(icon: "clock.arrow.circlepath", action: { 
-                router.push(.main(.documentSelection(destination: .history))) 
+                router.push(.main(.history)) 
             })
         ]
     }
