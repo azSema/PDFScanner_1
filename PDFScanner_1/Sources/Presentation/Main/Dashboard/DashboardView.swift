@@ -17,7 +17,7 @@ struct DashboardView: View {
                     headerSection
                     mainScanButton
                     documentsSection
-                    Spacer(minLength: 100) // Space for FloatingButton
+                    Spacer(minLength: 100)
                 }
                 .padding(.horizontal, 16)
             }
@@ -49,6 +49,7 @@ struct DashboardView: View {
                     onScanCancelled: viewModel.handleScanCancelled,
                     onScanError: viewModel.handleScanError
                 )
+                .ignoresSafeArea()
             } else {
                 unsupportedDeviceView
             }
@@ -255,16 +256,6 @@ extension DashboardView {
             .clipShape(Circle())
             .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
         )
-    }
-}
-
-// MARK: - Haptic Feedback
-
-extension DashboardView {
-    
-    private func playHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        let impact = UIImpactFeedbackGenerator(style: style)
-        impact.impactOccurred()
     }
 }
 
