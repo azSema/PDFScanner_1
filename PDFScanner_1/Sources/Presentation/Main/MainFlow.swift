@@ -2,11 +2,19 @@ import SwiftUI
 
 struct MainFlow: View {
     
+    @EnvironmentObject private var router: Router
+    
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        NavigationStack(path: $router.path) {
+            DashboardView()
+                .navigationDestination(for: Destination.self) { destination in
+                    destination.makeView()
+                }
+        }
     }
 }
 
 #Preview {
     MainFlow()
+        .environmentObject(Router())
 }

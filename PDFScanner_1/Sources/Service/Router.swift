@@ -26,18 +26,15 @@ final class Router: ObservableObject {
 }
 
 enum Destination: Hashable {
-    case home(HomeRoute)
-    case history(HistoryRoute)
+    case main(MainRoute)
 }
 
 extension Destination: AppDesination {
     @ViewBuilder
     func makeView() -> some View {
         switch self {
-        case .home(let r):
-            r.makeView()
-        case .history(let r):
-            r.makeView()
+        case .main(let route):
+            route.makeView()
         }
     }
 }
@@ -47,25 +44,39 @@ protocol AppDesination: Hashable {
     @ViewBuilder func makeView() -> Screen
 }
 
-enum HomeRoute: AppDesination {
-    case start
-    case result(id: UUID)
+enum MainRoute: AppDesination {
+    case dashboard
+    case scanner(mode: ScanMode)
+    case converter
+    case editor(documentId: UUID)
+    case merge
+    case history
+    case documentDetail(documentId: UUID)
 
     @ViewBuilder
     func makeView() -> some View {
         switch self {
-        case .start: Text("Start")
-        case .result(let id):Text("Result")
+        case .dashboard:
+            DashboardView()
+        case .scanner(let mode):
+            ScannerView(mode: mode)
+        case .converter:
+            ConverterView()
+        case .editor(let documentId):
+            EditorView(documentId: documentId)
+        case .merge:
+            MergeView()
+        case .history:
+            HistoryView()
+        case .documentDetail(let documentId):
+            DocumentDetailView(documentId: documentId)
         }
     }
 }
 
-enum HistoryRoute: AppDesination {
-    case editor(id: UUID)
-
-    @ViewBuilder
-    func makeView() -> some View {
-        Text("Edit")
-    }
+enum ScanMode: Hashable {
+    case single
+    case multi
+    case batch
 }
 
