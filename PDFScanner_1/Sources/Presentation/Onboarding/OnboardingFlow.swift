@@ -169,7 +169,7 @@ struct OnboardingFlow: View {
         }
     }
     
-    func restoreTapped() {
+    func restoreTapped() async {
         #warning("On resotre")
     }
     

@@ -243,7 +243,7 @@ extension DashboardView {
                 router.push(.main(.documentSelection(destination: .editor))) 
             }),
             createMenuButton(icon: "doc.on.doc", action: { 
-                router.push(.main(.documentSelection(destination: .merge))) 
+                router.push(.main(.merge)) 
             }),
             createMenuButton(icon: "clock.arrow.circlepath", action: { 
                 router.push(.main(.documentSelection(destination: .history))) 
