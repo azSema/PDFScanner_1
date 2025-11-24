@@ -18,7 +18,7 @@ struct OnboardingFlow: View {
     var body: some View {
         ZStack {
 
-            Color.white
+            Color.green.ignoresSafeArea()
             
             VStack(spacing: deviceType == .iphoneSE ? 8 : 12) {
                 title(text: getTitle())
@@ -175,6 +175,7 @@ struct OnboardingFlow: View {
     
     private func purchaseTapped() async {
         await premium.makePurchase()
+        await MainActor.run { router.finishOnboarding() }
     }
     
     private func showError(message: String) {
