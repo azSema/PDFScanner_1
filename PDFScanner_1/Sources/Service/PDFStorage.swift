@@ -27,9 +27,22 @@ final class PDFStorage: ObservableObject {
         documents.append(document)
     }
     
-    func removeDocument(withId id: String) {
-        documents.removeAll { $0.id == id }
+    func removeDocument(_ document: DocumentDTO) {
+        documents.removeAll { $0.id == document.id }
         // TODO: Also remove from file system
+        if let url = document.url, url.path.contains("PDFScanner") {
+            try? fileManager.removeItem(at: url)
+        }
+    }
+    
+    func toggleFavorite(_ document: DocumentDTO) {
+        guard let index = documents.firstIndex(where: { $0.id == document.id }) else { return }
+        documents[index].isFavorite.toggle()
+    }
+    
+    func renameDocument(_ document: DocumentDTO, to newName: String) {
+        guard let index = documents.firstIndex(where: { $0.id == document.id }) else { return }
+        documents[index].name = newName
     }
     
     func saveDocument(_ document: DocumentDTO) async throws {

@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct DashboardView: View {
     
     @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var actionsManager = DocumentActionsManager()
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
     
@@ -29,7 +30,10 @@ struct DashboardView: View {
             floatingButtonMenu
         }
         .onAppear {
-            // PDFStorage loads automatically
+            actionsManager.configure(with: pdfStorage)
+        }
+        .background {
+            DocumentActionsView(actionsManager: actionsManager)
         }
         .fileImporter(
             isPresented: $viewModel.isShowingFileImporter,
@@ -170,9 +174,9 @@ extension DashboardView {
                 RecentScansRow(
                     documents: Array(pdfStorage.documents.prefix(5)), // Show last 5 documents
                     onDocumentTap: { document in
-                        let documentId = UUID(uuidString: document.id) ?? UUID()
-                        router.push(.main(.documentDetail(documentId: documentId)))
-                    }
+                        actionsManager.showActionSheet(for: document)
+                    },
+                    actionsManager: actionsManager
                 )
             }
         }

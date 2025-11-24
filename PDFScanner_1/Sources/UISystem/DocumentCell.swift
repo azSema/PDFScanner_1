@@ -6,19 +6,22 @@ struct DocumentCell: View {
     let allowsSelection: Bool
     let onTap: () -> Void
     let onSelectionToggle: (() -> Void)?
+    let actionsManager: DocumentActionsManager?
     
     init(
         document: DocumentDTO,
         isSelected: Bool = false,
         allowsSelection: Bool = false,
         onTap: @escaping () -> Void,
-        onSelectionToggle: (() -> Void)? = nil
+        onSelectionToggle: (() -> Void)? = nil,
+        actionsManager: DocumentActionsManager? = nil
     ) {
         self.document = document
         self.isSelected = isSelected
         self.allowsSelection = allowsSelection
         self.onTap = onTap
         self.onSelectionToggle = onSelectionToggle
+        self.actionsManager = actionsManager
     }
     
     var body: some View {
@@ -105,6 +108,12 @@ struct DocumentCell: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .contextMenu {
+            if let actionsManager = actionsManager {
+                DocumentActionsView(actionsManager: actionsManager)
+                    .contextMenu(for: document)
+            }
+        }
     }
     
     private var formattedDate: String {

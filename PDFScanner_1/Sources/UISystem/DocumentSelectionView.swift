@@ -4,6 +4,7 @@ struct DocumentSelectionView: View {
     let destination: DocumentDestination
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
+    @StateObject private var actionsManager = DocumentActionsManager()
     
     @State private var selectedDocuments: Set<String> = []
     
@@ -29,6 +30,12 @@ struct DocumentSelectionView: View {
                     .foregroundColor(.appPrimary)
                 }
             }
+        }
+        .onAppear {
+            actionsManager.configure(with: pdfStorage)
+        }
+        .background {
+            DocumentActionsView(actionsManager: actionsManager)
         }
     }
     
@@ -96,7 +103,8 @@ struct DocumentSelectionView: View {
                         },
                         onSelectionToggle: {
                             toggleSelection(for: document)
-                        }
+                        },
+                        actionsManager: actionsManager
                     )
                 }
             }

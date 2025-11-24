@@ -4,15 +4,30 @@ struct RecentScansRow: View {
     
     let documents: [DocumentDTO]
     let onDocumentTap: (DocumentDTO) -> Void
+    let actionsManager: DocumentActionsManager
+    
+    init(
+        documents: [DocumentDTO],
+        onDocumentTap: @escaping (DocumentDTO) -> Void,
+        actionsManager: DocumentActionsManager
+    ) {
+        self.documents = documents
+        self.onDocumentTap = onDocumentTap
+        self.actionsManager = actionsManager
+    }
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(documents, id: \.id) { document in
-                    DocumentCard(document: document) {
-                        playHaptic(.light)
-                        onDocumentTap(document)
-                    }
+                    DocumentCard(
+                        document: document,
+                        onTap: {
+                            playHaptic(.light)
+                            onDocumentTap(document)
+                        },
+                        actionsManager: actionsManager
+                    )
                 }
             }
         }
@@ -24,6 +39,17 @@ struct DocumentCard: View {
     
     let document: DocumentDTO
     let onTap: () -> Void
+    let actionsManager: DocumentActionsManager
+    
+    init(
+        document: DocumentDTO,
+        onTap: @escaping () -> Void,
+        actionsManager: DocumentActionsManager
+    ) {
+        self.document = document
+        self.onTap = onTap
+        self.actionsManager = actionsManager
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -58,6 +84,10 @@ struct DocumentCard: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        .contextMenu {
+            DocumentActionsView(actionsManager: actionsManager)
+                .contextMenu(for: document)
+        }
     }
     
     private func formatDate(_ date: Date) -> String {
@@ -119,10 +149,14 @@ struct RecentScansEmptyView: View {
 
 #Preview {
     VStack {
-        RecentScansRow(documents: [
-            DocumentDTO(name: "Document 1", type: .pdf, date: Date()),
-            DocumentDTO(name: "Document 2", type: .pdf, date: Date())
-        ]) { _ in }
+        RecentScansRow(
+            documents: [
+                DocumentDTO(name: "Document 1", type: .pdf, date: Date()),
+                DocumentDTO(name: "Document 2", type: .pdf, date: Date())
+            ],
+            onDocumentTap: { _ in },
+            actionsManager: DocumentActionsManager()
+        )
         
         Divider().padding()
         
