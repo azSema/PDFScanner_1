@@ -64,8 +64,8 @@ final class DocumentActionsManager: ObservableObject {
     }
     
     private func handleEdit(_ document: DocumentDTO) {
-        // TODO: Implement edit functionality
-        print("Edit document: \(document.name)")
+        guard let documentId = UUID(uuidString: document.id) else { return }
+        router?.push(.main(.editor(documentId: documentId)))
     }
     
     private func handleConvert(_ document: DocumentDTO) {
