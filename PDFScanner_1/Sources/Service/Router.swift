@@ -47,6 +47,7 @@ protocol AppDesination: Hashable {
 enum MainRoute: AppDesination {
     case dashboard
     case scanner(mode: ScanMode)
+    case documentSelection(destination: DocumentDestination)
     case converter
     case editor(documentId: UUID)
     case merge
@@ -60,6 +61,8 @@ enum MainRoute: AppDesination {
             DashboardView()
         case .scanner(let mode):
             ScannerView(mode: mode)
+        case .documentSelection(let destination):
+            DocumentSelectionView(destination: destination)
         case .converter:
             ConverterView()
         case .editor(let documentId):
@@ -78,5 +81,34 @@ enum ScanMode: Hashable {
     case single
     case multi
     case batch
+}
+
+enum DocumentDestination: Hashable {
+    case history
+    case merge
+    case editor
+    case converter
+    
+    var title: String {
+        switch self {
+        case .history:
+            return "Recent Documents"
+        case .merge:
+            return "Documents to Merge"
+        case .editor:
+            return "Document to Edit"
+        case .converter:
+            return "Document to Convert"
+        }
+    }
+    
+    var allowsMultipleSelection: Bool {
+        switch self {
+        case .merge:
+            return true
+        case .history, .editor, .converter:
+            return false
+        }
+    }
 }
 

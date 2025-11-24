@@ -6,6 +6,7 @@ struct DashboardView: View {
     
     @StateObject private var viewModel = DashboardViewModel()
     @EnvironmentObject private var router: Router
+    @EnvironmentObject private var pdfStorage: PDFStorage
     
     var body: some View {
         ZStack {
@@ -28,7 +29,7 @@ struct DashboardView: View {
             floatingButtonMenu
         }
         .onAppear {
-            viewModel.loadRecentDocuments()
+            // PDFStorage loads automatically
         }
         .fileImporter(
             isPresented: $viewModel.isShowingFileImporter,
@@ -136,11 +137,11 @@ extension DashboardView {
                 HStack(spacing: 8) {
                     Image(systemName: "folder.badge.plus")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.appText)
                     
                     Text("Or add manually")
                         .font(.medium(16))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.appText)
                         .underline()
                 }
                 .padding(.horizontal, 16)
@@ -154,11 +155,11 @@ extension DashboardView {
     
     private var documentsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if viewModel.recentDocuments.isEmpty {
+            if pdfStorage.documents.isEmpty {
                 AppEmptyView(
                     title: "No Documents Yet",
                     subtitle: "Start scanning documents to see them here. Tap the scan button above to get started.",
-                    imageName: "doc.text"
+                    imageName: "hand.tap"
                 )
                 .padding(.top, 20)
             } else {
@@ -167,7 +168,7 @@ extension DashboardView {
                     .foregroundStyle(.appText)
                 
                 RecentScansRow(
-                    documents: viewModel.recentDocuments,
+                    documents: Array(pdfStorage.documents.prefix(5)), // Show last 5 documents
                     onDocumentTap: { document in
                         let documentId = UUID(uuidString: document.id) ?? UUID()
                         router.push(.main(.documentDetail(documentId: documentId)))
@@ -231,10 +232,18 @@ extension DashboardView {
     
     private var menuButtons: [AnyView] {
         [
-            createMenuButton(icon: "arrow.triangle.2.circlepath", action: { router.push(.main(.converter)) }),
-            createMenuButton(icon: "pencil.and.outline", action: { router.push(.main(.editor(documentId: UUID()))) }),
-            createMenuButton(icon: "doc.on.doc", action: { router.push(.main(.merge)) }),
-            createMenuButton(icon: "clock.arrow.circlepath", action: { router.push(.main(.history)) })
+            createMenuButton(icon: "arrow.triangle.2.circlepath", action: { 
+                router.push(.main(.documentSelection(destination: .converter))) 
+            }),
+            createMenuButton(icon: "pencil.and.outline", action: { 
+                router.push(.main(.documentSelection(destination: .editor))) 
+            }),
+            createMenuButton(icon: "doc.on.doc", action: { 
+                router.push(.main(.documentSelection(destination: .merge))) 
+            }),
+            createMenuButton(icon: "clock.arrow.circlepath", action: { 
+                router.push(.main(.documentSelection(destination: .history))) 
+            })
         ]
     }
     

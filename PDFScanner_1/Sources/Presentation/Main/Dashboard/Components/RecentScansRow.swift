@@ -38,11 +38,10 @@ struct DocumentCard: View {
                         )
                     
                     Image(uiImage: document.thumbnail)
-                        .renderingMode(.template)
                         .resizable()
+                        .aspectRatio(contentMode: .fill)
                         .frame(width: 80, height: 110)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .foregroundStyle(.white)
                 }
                 
                 VStack(spacing: 2) {
