@@ -4,6 +4,7 @@ struct ContentView: View {
     
     @StateObject private var router: Router = .init()
     @StateObject private var premium: PremiumManager = .init()
+    @StateObject private var pdfStorage: PDFStorage = .init()
     
     var body: some View {
         
@@ -22,6 +23,7 @@ struct ContentView: View {
          .animation(.easeInOut, value: premium.isProcessing)
         .environmentObject(router)
         .environmentObject(premium)
+        .environmentObject(pdfStorage)
     }
     
 }

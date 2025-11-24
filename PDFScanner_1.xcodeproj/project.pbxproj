@@ -11,6 +11,8 @@
 		3FEC737E2ED44FC1000C1289 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 3FEC737D2ED44FC1000C1289 /* Lottie */; };
 		3FEC73812ED45004000C1289 /* FloatingButton in Frameworks */ = {isa = PBXBuildFile; productRef = 3FEC73802ED45004000C1289 /* FloatingButton */; };
 		3FEC73842ED45011000C1289 /* ActivityIndicatorView in Frameworks */ = {isa = PBXBuildFile; productRef = 3FEC73832ED45011000C1289 /* ActivityIndicatorView */; };
+		3FEC74012ED46C02000C1289 /* CropViewController in Frameworks */ = {isa = PBXBuildFile; productRef = 3FEC74002ED46C02000C1289 /* CropViewController */; };
+		3FEC74032ED46C02000C1289 /* TOCropViewController in Frameworks */ = {isa = PBXBuildFile; productRef = 3FEC74022ED46C02000C1289 /* TOCropViewController */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +35,8 @@
 				3FEC73812ED45004000C1289 /* FloatingButton in Frameworks */,
 				3FEC737B2ED44FB6000C1289 /* PopupView in Frameworks */,
 				3FEC73842ED45011000C1289 /* ActivityIndicatorView in Frameworks */,
+				3FEC74012ED46C02000C1289 /* CropViewController in Frameworks */,
+				3FEC74032ED46C02000C1289 /* TOCropViewController in Frameworks */,
 				3FEC737E2ED44FC1000C1289 /* Lottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -80,6 +84,8 @@
 				3FEC737D2ED44FC1000C1289 /* Lottie */,
 				3FEC73802ED45004000C1289 /* FloatingButton */,
 				3FEC73832ED45011000C1289 /* ActivityIndicatorView */,
+				3FEC74002ED46C02000C1289 /* CropViewController */,
+				3FEC74022ED46C02000C1289 /* TOCropViewController */,
 			);
 			productName = PDFScanner_1;
 			productReference = 3FF88D802ED446D7009BC342 /* PDFScanner_1.app */;
@@ -114,6 +120,7 @@
 				3FEC737C2ED44FC1000C1289 /* XCRemoteSwiftPackageReference "lottie-spm" */,
 				3FEC737F2ED45004000C1289 /* XCRemoteSwiftPackageReference "FloatingButton" */,
 				3FEC73822ED45011000C1289 /* XCRemoteSwiftPackageReference "ActivityIndicatorView" */,
+				3FEC73FF2ED46C02000C1289 /* XCRemoteSwiftPackageReference "TOCropViewController" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3FF88D812ED446D7009BC342 /* Products */;
@@ -267,10 +274,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NXTNX9554X;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to scan documents and convert them to PDF format.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -286,7 +295,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "eeePte.PDFScanner-1";
+				PRODUCT_BUNDLE_IDENTIFIER = "eeePte.PDFScanner-1-23";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -310,10 +319,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NXTNX9554X;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to scan documents and convert them to PDF format.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -329,7 +340,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "eeePte.PDFScanner-1";
+				PRODUCT_BUNDLE_IDENTIFIER = "eeePte.PDFScanner-1-23";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -402,6 +413,14 @@
 				minimumVersion = 1.2.1;
 			};
 		};
+		3FEC73FF2ED46C02000C1289 /* XCRemoteSwiftPackageReference "TOCropViewController" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TimOliver/TOCropViewController.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -424,6 +443,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 3FEC73822ED45011000C1289 /* XCRemoteSwiftPackageReference "ActivityIndicatorView" */;
 			productName = ActivityIndicatorView;
+		};
+		3FEC74002ED46C02000C1289 /* CropViewController */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3FEC73FF2ED46C02000C1289 /* XCRemoteSwiftPackageReference "TOCropViewController" */;
+			productName = CropViewController;
+		};
+		3FEC74022ED46C02000C1289 /* TOCropViewController */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3FEC73FF2ED46C02000C1289 /* XCRemoteSwiftPackageReference "TOCropViewController" */;
+			productName = TOCropViewController;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

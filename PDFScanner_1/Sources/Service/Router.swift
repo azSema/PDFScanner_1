@@ -26,18 +26,15 @@ final class Router: ObservableObject {
 }
 
 enum Destination: Hashable {
-    case home(HomeRoute)
-    case history(HistoryRoute)
+    case main(MainRoute)
 }
 
 extension Destination: AppDesination {
     @ViewBuilder
     func makeView() -> some View {
         switch self {
-        case .home(let r):
-            r.makeView()
-        case .history(let r):
-            r.makeView()
+        case .main(let route):
+            route.makeView()
         }
     }
 }
@@ -47,25 +44,74 @@ protocol AppDesination: Hashable {
     @ViewBuilder func makeView() -> Screen
 }
 
-enum HomeRoute: AppDesination {
-    case start
-    case result(id: UUID)
+enum MainRoute: AppDesination {
+    case dashboard
+    case scanner(mode: ScanMode)
+    case documentSelection(destination: DocumentDestination)
+    case converter
+    case editor(documentId: UUID)
+    case merge
+    case mergePreview(url: URL, arrangedDocuments: [DocumentDTO])
+    case history
+    case documentDetail(documentId: UUID)
 
     @ViewBuilder
     func makeView() -> some View {
         switch self {
-        case .start: Text("Start")
-        case .result(let id):Text("Result")
+        case .dashboard:
+            DashboardView()
+        case .scanner(let mode):
+            ScannerView(mode: mode)
+        case .documentSelection(let destination):
+            DocumentSelectionView(destination: destination)
+        case .converter:
+            ConverterView()
+        case .editor(let documentId):
+            EditorView(documentId: documentId)
+        case .merge:
+            MergeView()
+        case .mergePreview(let url, let arrangedDocuments):
+            MergePreviewView(mergedPDFURL: url, arrangedDocuments: arrangedDocuments)
+        case .history:
+            HistoryView()
+        case .documentDetail(let documentId):
+            DocumentDetailView(documentId: documentId)
         }
     }
 }
 
-enum HistoryRoute: AppDesination {
-    case editor(id: UUID)
+enum ScanMode: Hashable {
+    case single
+    case multi
+    case batch
+}
 
-    @ViewBuilder
-    func makeView() -> some View {
-        Text("Edit")
+enum DocumentDestination: Hashable {
+    case history
+    case merge
+    case editor
+    case converter
+    
+    var title: String {
+        switch self {
+        case .history:
+            return "Recent Documents"
+        case .merge:
+            return "Documents to Merge"
+        case .editor:
+            return "Document to Edit"
+        case .converter:
+            return "Document to Convert"
+        }
+    }
+    
+    var allowsMultipleSelection: Bool {
+        switch self {
+        case .merge:
+            return true
+        case .history, .editor, .converter:
+            return false
+        }
     }
 }
 

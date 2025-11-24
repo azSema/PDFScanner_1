@@ -10,13 +10,15 @@ struct DocumentDTO: Identifiable, Hashable {
     var url: URL?
     var isFavorite: Bool
     
-    init(pdf: PDFDocument? = nil,
+    init(id: String = UUID().uuidString,
+         pdf: PDFDocument? = nil,
          name: String = "",
          type: DocumentType = .pdf,
          size: String = "",
          date: Date = .now,
          url: URL? = nil,
          isFavorite: Bool = false) {
+        self.id = id
         self.pdf = pdf
         self.name = name
         self.type = type
@@ -28,9 +30,31 @@ struct DocumentDTO: Identifiable, Hashable {
     var thumbnail: UIImage {
         switch type {
         case .pdf:
-            pdf?.page(at: 0)?.toImage() ?? UIImage(systemName: "document")!
+            guard let pdf = pdf else {
+                print("⚠️ PDF is nil for document: \(name)")
+                return UIImage(systemName: "document.fill") ?? UIImage()
+            }
+            
+            guard pdf.pageCount > 0 else {
+                print("⚠️ PDF has no pages for document: \(name)")
+                return UIImage(systemName: "document.fill") ?? UIImage()
+            }
+            
+            guard let page = pdf.page(at: 0) else {
+                print("⚠️ Could not get first page for document: \(name)")
+                return UIImage(systemName: "document.fill") ?? UIImage()
+            }
+            
+            guard let image = page.toImage() else {
+                print("⚠️ Could not create thumbnail image for document: \(name)")
+                return UIImage(systemName: "document.fill") ?? UIImage()
+            }
+            
+            print("✅ Created thumbnail for document: \(name)")
+            return image
+            
         case .doc:
-            UIImage(systemName: "document")!
+            return UIImage(systemName: "document.fill") ?? UIImage()
         }
     }
     
