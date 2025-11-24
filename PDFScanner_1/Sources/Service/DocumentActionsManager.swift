@@ -11,16 +11,20 @@ final class DocumentActionsManager: ObservableObject {
     @Published var showingDeleteAlert = false
     @Published var showingShareSheet = false
     @Published var showingActionSheet = false
+    @Published var showingConvertResult = false
     
     @Published var selectedDocument: DocumentDTO?
     @Published var previewURL: URL?
     @Published var newDocumentName = ""
     @Published var shareItems: [Any] = []
+    @Published var convertResultURLs: [URL] = []
     
     private var pdfStorage: PDFStorage?
+    private var router: Router?
     
-    func configure(with pdfStorage: PDFStorage) {
+    func configure(with pdfStorage: PDFStorage, router: Router? = nil) {
         self.pdfStorage = pdfStorage
+        self.router = router
     }
     
     // MARK: - Actions
@@ -38,6 +42,8 @@ final class DocumentActionsManager: ObservableObject {
             handlePreview(document)
         case .edit:
             handleEdit(document)
+        case .convert:
+            handleConvert(document)
         case .rename:
             handleRename(document)
         case .share:
@@ -60,6 +66,24 @@ final class DocumentActionsManager: ObservableObject {
     private func handleEdit(_ document: DocumentDTO) {
         // TODO: Implement edit functionality
         print("Edit document: \(document.name)")
+    }
+    
+    private func handleConvert(_ document: DocumentDTO) {
+        Task {
+            do {
+                let converter = Converter()
+                guard let pdfURL = document.url else { return }
+                let imageURLs = try await converter.convertPDFToJPG(pdfURL: pdfURL, dpi: 150.0)
+                
+                await MainActor.run {
+                    self.convertResultURLs = imageURLs
+                    self.showingConvertResult = true
+                }
+            } catch {
+                print("Conversion failed: \(error)")
+                // TODO: Show error alert
+            }
+        }
     }
     
     private func handleRename(_ document: DocumentDTO) {
@@ -105,7 +129,9 @@ final class DocumentActionsManager: ObservableObject {
         showingRenameAlert = false
         showingDeleteAlert = false
         showingActionSheet = false
+        showingConvertResult = false
         selectedDocument = nil
         newDocumentName = ""
+        convertResultURLs = []
     }
 }

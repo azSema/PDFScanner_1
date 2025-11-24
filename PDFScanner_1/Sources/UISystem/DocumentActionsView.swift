@@ -11,11 +11,13 @@ struct DocumentActionsView: View {
                         QuickLookPreview(url: url)
                             .navigationTitle("Preview")
                             .navigationBarTitleDisplayMode(.inline)
-                            .navigationBarItems(
-                                trailing: Button("Done") {
-                                    actionsManager.showingPreview = false
+                            .toolbar {
+                                ToolbarItem(placement: .navigationBarTrailing) {
+                                    Button("Done") {
+                                        actionsManager.showingPreview = false
+                                    }
                                 }
-                            )
+                            }
                     }
                 }
             }
@@ -47,6 +49,17 @@ struct DocumentActionsView: View {
                     Text("Are you sure you want to delete '\(document.name)'? This action cannot be undone.")
                 }
             }
+            .sheet(isPresented: $actionsManager.showingConvertResult) {
+                if !actionsManager.convertResultURLs.isEmpty {
+                    ConvertResultActionsView(
+                        resultURLs: actionsManager.convertResultURLs,
+                        documentName: actionsManager.selectedDocument?.name ?? "Document",
+                        onDismiss: {
+                            actionsManager.cancelAction()
+                        }
+                    )
+                }
+            }
             .confirmationDialog(
                 actionsManager.selectedDocument?.name ?? "Document Actions",
                 isPresented: $actionsManager.showingActionSheet,
@@ -67,6 +80,10 @@ struct DocumentActionsView: View {
         
         Button(action: { actionsManager.handleAction(.edit, for: document) }) {
             Label("Edit", systemImage: "square.and.pencil")
+        }
+        
+        Button(action: { actionsManager.handleAction(.convert, for: document) }) {
+            Label("Convert to Images", systemImage: "arrow.triangle.2.circlepath")
         }
         
         Divider()
@@ -106,6 +123,10 @@ struct DocumentActionsView: View {
             actionsManager.handleAction(.edit, for: document)
         }
         
+        Button("Convert to Images") {
+            actionsManager.handleAction(.convert, for: document)
+        }
+        
         Button("Rename") {
             actionsManager.handleAction(.rename, for: document)
         }
@@ -124,6 +145,78 @@ struct DocumentActionsView: View {
         
         Button("Cancel", role: .cancel) {
             actionsManager.cancelAction()
+        }
+    }
+}
+
+// MARK: - Convert Result View
+
+struct ConvertResultActionsView: View {
+    let resultURLs: [URL]
+    let documentName: String
+    let onDismiss: () -> Void
+    
+    @State private var selectedImageIndex = 0
+    @State private var showingShareSheet = false
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                if !resultURLs.isEmpty {
+                    // Image viewer
+                    TabView(selection: $selectedImageIndex) {
+                        ForEach(Array(resultURLs.enumerated()), id: \.offset) { index, url in
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            } placeholder: {
+                                ProgressView()
+                            }
+                            .tag(index)
+                        }
+                    }
+                    .tabViewStyle(.page)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    
+                    // Action bar
+                    VStack(spacing: 16) {
+                        Text("Page \(selectedImageIndex + 1) of \(resultURLs.count)")
+                            .font(.medium(16))
+                            .foregroundColor(.appSecondary)
+                        
+                        Button("Share All Images") {
+                            showingShareSheet = true
+                        }
+                        .font(.medium(16))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(Color.appPrimary)
+                        .cornerRadius(12)
+                    }
+                    .padding(16)
+                    .background(Color.appSurface)
+                } else {
+                    Text("No images generated")
+                        .font(.medium(16))
+                        .foregroundColor(.appSecondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .navigationTitle("\(documentName) - Converted")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        onDismiss()
+                    }
+                    .foregroundColor(.appPrimary)
+                }
+            }
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            ActivityViewController(activityItems: resultURLs)
         }
     }
 }

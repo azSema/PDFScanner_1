@@ -2,6 +2,8 @@ import SwiftUI
 
 struct DocumentSelectionView: View {
     let destination: DocumentDestination
+    var onDocumentSelected: ((DocumentDTO) -> Void)? = nil
+    
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
     @StateObject private var actionsManager = DocumentActionsManager()
@@ -32,7 +34,7 @@ struct DocumentSelectionView: View {
             }
         }
         .onAppear {
-            actionsManager.configure(with: pdfStorage)
+            actionsManager.configure(with: pdfStorage, router: router)
         }
         .background {
             DocumentActionsView(actionsManager: actionsManager)
@@ -99,11 +101,29 @@ struct DocumentSelectionView: View {
                         isSelected: selectedDocuments.contains(document.id),
                         allowsSelection: destination.allowsMultipleSelection,
                         onTap: {
-                            handleDocumentTap(document)
+                            if destination.allowsMultipleSelection {
+                                if selectedDocuments.contains(document.id) {
+                                    selectedDocuments.remove(document.id)
+                                } else {
+                                    selectedDocuments.insert(document.id)
+                                }
+                            } else {
+                                // Single selection - handle immediately
+                                if let onDocumentSelected = onDocumentSelected {
+                                    onDocumentSelected(document)
+                                } else {
+                                    selectedDocuments.insert(document.id)
+                                    handleContinue()
+                                }
+                            }
                         },
-                        onSelectionToggle: {
-                            toggleSelection(for: document)
-                        },
+                        onSelectionToggle: destination.allowsMultipleSelection ? {
+                            if selectedDocuments.contains(document.id) {
+                                selectedDocuments.remove(document.id)
+                            } else {
+                                selectedDocuments.insert(document.id)
+                            }
+                        } : nil,
                         actionsManager: actionsManager
                     )
                 }
@@ -155,8 +175,12 @@ struct DocumentSelectionView: View {
             router.push(.main(.editor(documentId: UUID(uuidString: firstDocument.id) ?? UUID())))
             
         case .converter:
-            router.push(.main(.converter))
-            // TODO: Pass selected document to converter
+            // Converter handled by callback
+            if let onDocumentSelected = onDocumentSelected {
+                onDocumentSelected(firstDocument)
+            } else {
+                router.push(.main(.converter))
+            }
             
         case .merge:
             router.push(.main(.merge))

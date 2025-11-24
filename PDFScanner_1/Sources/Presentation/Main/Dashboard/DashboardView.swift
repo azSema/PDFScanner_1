@@ -30,7 +30,7 @@ struct DashboardView: View {
             floatingButtonMenu
         }
         .onAppear {
-            actionsManager.configure(with: pdfStorage)
+            actionsManager.configure(with: pdfStorage, router: router)
         }
         .background {
             DocumentActionsView(actionsManager: actionsManager)
@@ -237,7 +237,7 @@ extension DashboardView {
     private var menuButtons: [AnyView] {
         [
             createMenuButton(icon: "arrow.triangle.2.circlepath", action: { 
-                router.push(.main(.documentSelection(destination: .converter))) 
+                router.push(.main(.converter)) 
             }),
             createMenuButton(icon: "pencil.and.outline", action: { 
                 router.push(.main(.documentSelection(destination: .editor))) 

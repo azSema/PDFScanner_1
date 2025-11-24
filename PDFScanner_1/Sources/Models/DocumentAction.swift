@@ -3,6 +3,7 @@ import Foundation
 enum DocumentAction: String, CaseIterable {
     case preview = "preview"
     case edit = "edit"
+    case convert = "convert"
     case rename = "rename"
     case share = "share"
     case toggleFavorite = "toggleFavorite"
@@ -14,6 +15,8 @@ enum DocumentAction: String, CaseIterable {
             return "Preview"
         case .edit:
             return "Edit"
+        case .convert:
+            return "Convert to Images"
         case .rename:
             return "Rename"
         case .share:
@@ -31,6 +34,8 @@ enum DocumentAction: String, CaseIterable {
             return "eye"
         case .edit:
             return "square.and.pencil"
+        case .convert:
+            return "arrow.triangle.2.circlepath"
         case .rename:
             return "pencil"
         case .share:
