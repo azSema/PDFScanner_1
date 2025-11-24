@@ -231,17 +231,19 @@ final class EditService: ObservableObject {
         let centerX = pageRect.width / 2
         let centerY = pageRect.height / 2
         
-        // Calculate signature bounds (use actual image size with reasonable scaling)
-        let maxWidth: CGFloat = 200
-        let maxHeight: CGFloat = 100
+        // Calculate signature bounds (компактный начальный размер для лучшего UX)
+        let desiredMaxWidth: CGFloat = 100    // Еще меньше для мобильных экранов
+        let desiredMaxHeight: CGFloat = 50    // Пропорционально уменьшено
         
         let imageSize = signature.size
-        let scaleX = maxWidth / imageSize.width
-        let scaleY = maxHeight / imageSize.height
-        let scale = min(scaleX, scaleY, 1.0) // Don't scale up
+        let scaleX = desiredMaxWidth / imageSize.width
+        let scaleY = desiredMaxHeight / imageSize.height
+        let scale = min(scaleX, scaleY, 0.6) // Уменьшил max scale до 0.6 для компактности
         
         let finalWidth = imageSize.width * scale
         let finalHeight = imageSize.height * scale
+        
+        print("📏 Signature sizing: image(\(imageSize)) → final(\(finalWidth)x\(finalHeight)) scale(\(scale))")
         
         // Create annotation bounds centered on page
         // Use same coordinate system as view (no Y-flip here)
@@ -262,7 +264,7 @@ final class EditService: ObservableObject {
             position: CGPoint(x: centerX, y: centerY),
             midPosition: CGPoint(x: 0.5, y: 0.5), // Normalized center - will be converted to view coordinates
             boundingBox: bounds,
-            scale: 1.0
+            scale: 0.3  // Компактный начальный размер - пользователь может увеличить при необходимости
         )
         
         // Set as active overlay (don't add to annotationsService yet)

@@ -95,7 +95,10 @@ struct SignatureOverlay: View {
             MagnificationGesture()
                 .onChanged { scale in
                     print("🔍 Signature scale changed: \(scale)")
-                    let clampedScale = min(max(scale, 0.5), 3.0)
+                    // Увеличил диапазон для более гибкого масштабирования
+                    let minScale: CGFloat = 0.1  // Уменьшил с 0.5 до 0.1 для очень маленьких подписей
+                    let maxScale: CGFloat = 5.0  // Увеличил с 3.0 до 5.0 для больших подписей
+                    let clampedScale = min(max(scale, minScale), maxScale)
                     annotation.scale = clampedScale
                     isScaling = true
                 }
@@ -105,7 +108,6 @@ struct SignatureOverlay: View {
                     saveSignaturePosition()
                 }
         )
-        .simultaneousGesture(DragGesture())
     }
     
     private func convertedViewPosition(for size: CGSize) -> CGPoint {

@@ -12,6 +12,8 @@ struct SignatureCreatorView: View {
     @State private var showingNameAlert = false
     @State private var signatureName = ""
     @State private var selectedTab = 0
+    @State private var saveAndUseMode = false  // true for "Save & Use", false for "Save only"
+    @State private var showingSavedAlert = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -49,6 +51,7 @@ struct SignatureCreatorView: View {
                         .disabled(!signatureService.hasSignature)
                         
                         Button("Save & Use") {
+                            saveAndUseMode = true
                             showingNameAlert = true
                         }
                         .disabled(!signatureService.hasSignature)
@@ -68,13 +71,24 @@ struct SignatureCreatorView: View {
             TextField("Signature name", text: $signatureName)
             Button("Cancel", role: .cancel) {
                 signatureName = ""
+                saveAndUseMode = false
             }
-            Button("Save") {
-                saveAndUseSignature()
+            Button(saveAndUseMode ? "Save & Use" : "Save") {
+                if saveAndUseMode {
+                    saveAndUseSignature()
+                } else {
+                    saveSignatureOnly()
+                }
+                saveAndUseMode = false
             }
             .disabled(signatureName.trim().isEmpty)
         } message: {
-            Text("Enter a name for this signature")
+            Text(saveAndUseMode ? "Enter a name for this signature and use it immediately" : "Enter a name to save this signature for later use")
+        }
+        .alert("Signature Saved", isPresented: $showingSavedAlert) {
+            Button("OK") { }
+        } message: {
+            Text("Your signature has been saved successfully and can be found in the Saved tab.")
         }
     }
     
@@ -204,16 +218,35 @@ struct SignatureCreatorView: View {
     // MARK: - Drawing Action Buttons
     
     private var drawingActionButtons: some View {
-        Button("Use Signature") {
-            useCurrentSignature()
+        VStack(spacing: 12) {
+            // Use Signature button
+            Button("Use Signature") {
+                useCurrentSignature()
+            }
+            .font(.medium(16))
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(signatureService.hasSignature ? Color.appPrimary : Color.gray)
+            .cornerRadius(12)
+            .disabled(!signatureService.hasSignature)
+            
+            // Save Signature button
+            Button("Save Signature") {
+                saveAndUseMode = false
+                showingNameAlert = true
+            }
+            .font(.medium(16))
+            .foregroundColor(signatureService.hasSignature ? Color.appPrimary : Color.gray)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(signatureService.hasSignature ? Color.appPrimary : Color.gray, lineWidth: 1)
+            )
+            .disabled(!signatureService.hasSignature)
         }
-        .font(.medium(16))
-        .foregroundColor(.white)
-        .frame(maxWidth: .infinity)
-        .frame(height: 48)
-        .background(signatureService.hasSignature ? Color.appPrimary : Color.gray)
-        .cornerRadius(12)
-        .disabled(!signatureService.hasSignature)
     }
     
     // MARK: - Methods
@@ -231,10 +264,29 @@ struct SignatureCreatorView: View {
         let colorHex = signatureService.selectedColor.toHex()
         
         if signatureStorage.saveSignature(signatureImage, name: signatureName.trim(), color: colorHex) != nil {
+            // Только используем если была нажата кнопка "Save & Use" из меню
             onSave(signatureImage)
         }
         
         signatureName = ""
+    }
+    
+    private func saveSignatureOnly() {
+        guard !signatureName.trim().isEmpty,
+              let signatureImage = signatureService.generateSignatureImage() else { return }
+        
+        let colorHex = signatureService.selectedColor.toHex()
+        
+        if signatureStorage.saveSignature(signatureImage, name: signatureName.trim(), color: colorHex) != nil {
+            // Только сохраняем, не используем
+            signatureName = ""
+            // Показываем подтверждение
+            showingSavedAlert = true
+            // Переключаемся на вкладку Saved чтобы показать сохраненную подпись
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                selectedTab = 1
+            }
+        }
     }
 }
 
