@@ -16,8 +16,16 @@ struct EditorView: View {
             if editService.pdfDocument != nil {
                 VStack(spacing: 0) {
                     // PDF Editor View
-                    PDFEditorView(editService: editService)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    GeometryReader { geometry in
+                        PDFEditorView(editService: editService)
+                            .onReceive(editService.$insertionPoint) { point in
+                                // Handle image insertion when point is set
+                                if editService.showingImagePicker && point != .zero {
+                                    // Store geometry size for coordinate conversion
+                                    editService.insertionGeometry = geometry.size
+                                }
+                            }
+                    }
                     
                     // Highlight Panel (appears above toolbar when active)
                     if editService.showingHighlightPanel {
@@ -30,6 +38,7 @@ struct EditorView: View {
                     if editService.isToolbarVisible {
                         EditorToolbar(editService: editService)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
+                            
                     }
                 }
                 .edgesIgnoringSafeArea(.bottom)

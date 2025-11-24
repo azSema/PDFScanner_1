@@ -13,7 +13,8 @@ struct EditorToolbar: View {
                     isSelected: editService.selectedTool == tool,
                     onTap: {
                         editService.selectTool(tool)
-                    }
+                    },
+                    editService: editService
                 )
             }
             
@@ -56,15 +57,34 @@ struct ToolButton: View {
     let tool: EditorTool
     let isSelected: Bool
     let onTap: () -> Void
+    @ObservedObject var editService: EditService
     
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 4) {
-                Image(systemName: tool.systemImage)
-                    .font(.system(size: 20))
-                    .foregroundColor(isSelected ? .white : .appText)
+                ZStack {
+                    if tool == .highlight && editService.selectedHighlightColor.isClearMode && isSelected {
+                        // Clear mode - show crossed out highlighter
+                        ZStack {
+                            Image(systemName: tool.systemImage)
+                                .font(.system(size: 20))
+                                .foregroundColor(isSelected ? .white.opacity(0.7) : .appText)
+                            
+                            // Diagonal line (slash)
+                            Rectangle()
+                                .fill(isSelected ? Color.white : Color.red)
+                                .frame(width: 2, height: 24)
+                                .rotationEffect(.degrees(45))
+                        }
+                    } else {
+                        // Regular tool icon
+                        Image(systemName: tool.systemImage)
+                            .font(.system(size: 20))
+                            .foregroundColor(isSelected ? .white : .appText)
+                    }
+                }
                 
-                Text(tool.title)
+                Text(tool == .highlight && editService.selectedHighlightColor.isClearMode && isSelected ? "Clear" : tool.title)
                     .font(.regular(10))
                     .foregroundColor(isSelected ? .white : .appSecondary)
             }
@@ -102,28 +122,69 @@ struct HighlightPanel: View {
             
             // Color selection
             VStack(alignment: .leading, spacing: 8) {
-                Text("Color")
-                    .font(.medium(14))
-                    .foregroundColor(.appText)
+                HStack {
+                    Text("Color")
+                        .font(.medium(14))
+                        .foregroundColor(.appText)
+                    
+                    if editService.selectedHighlightColor.isClearMode {
+                        Spacer()
+                        Text("Clear Mode")
+                            .font(.regular(12))
+                            .foregroundColor(.red)
+                    }
+                }
                 
                 HStack(spacing: 12) {
                     ForEach(HighlightColor.allCases, id: \.self) { color in
                         Button(action: {
                             editService.updateHighlightColor(color)
                         }) {
-                            Circle()
-                                .fill(Color(color.color))
-                                .frame(width: 32, height: 32)
-                                .overlay(
+                            ZStack {
+                                if color.isClearMode {
+                                    // Clear mode - show crossed out circle
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.gray.opacity(0.3))
+                                            .frame(width: 32, height: 32)
+                                        
+                                        // Diagonal line (slash)
+                                        Rectangle()
+                                            .fill(Color.red)
+                                            .frame(width: 2, height: 36)
+                                            .rotationEffect(.degrees(45))
+                                        
+                                        // Clear icon
+                                        Image(systemName: "highlighter")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.gray)
+                                    }
+                                } else {
+                                    // Regular color circle
                                     Circle()
-                                        .stroke(
-                                            editService.selectedHighlightColor == color ? 
-                                            Color.appText : Color.clear,
-                                            lineWidth: 2
-                                        )
-                                )
+                                        .fill(Color(color.color))
+                                        .frame(width: 32, height: 32)
+                                }
+                                
+                                // Selection border
+                                Circle()
+                                    .stroke(
+                                        editService.selectedHighlightColor == color ? 
+                                        Color.appText : Color.clear,
+                                        lineWidth: 2
+                                    )
+                                    .frame(width: 32, height: 32)
+                            }
                         }
                     }
+                }
+                
+                // Clear mode instruction
+                if editService.selectedHighlightColor.isClearMode {
+                    Text("Select text to remove existing highlights")
+                        .font(.regular(12))
+                        .foregroundColor(.appSecondary)
+                        .italic()
                 }
             }
             
@@ -159,13 +220,14 @@ struct HighlightPanel: View {
 }
 
 #Preview {
+    let editService = EditService()
     VStack {
         Spacer()
         
-        EditorToolbar(editService: EditService())
+        EditorToolbar(editService: editService)
             .padding()
         
-        HighlightPanel(editService: EditService())
+        HighlightPanel(editService: editService)
             .padding()
     }
     .background(Color.appBackground)

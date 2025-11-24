@@ -20,6 +20,7 @@ final class EditService: ObservableObject {
     @Published var showingImagePicker = false
     @Published var showingImageInsertMode = false
     @Published var insertionPoint: CGPoint = .zero
+    @Published var insertionGeometry: CGSize = .zero
     
     // Signature
     @Published var showingSignatureCreator = false
@@ -30,8 +31,12 @@ final class EditService: ObservableObject {
     @Published var hasUnsavedChanges = false
     @Published var isProcessing = false
     
+    // Annotations service
+    @Published var annotationsService = AnnotationsService()
+    
     private var documentId: UUID?
     private var pdfStorage: PDFStorage?
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Configuration
     
@@ -39,6 +44,31 @@ final class EditService: ObservableObject {
         self.documentId = documentId
         self.pdfStorage = pdfStorage
         loadDocument()
+        setupAnnotationsBinding()
+    }
+    
+    private func setupAnnotationsBinding() {
+        // Listen for annotations changes
+        annotationsService.$hasUnsavedAnnotations
+            .sink { [weak self] hasUnsaved in
+                if hasUnsaved {
+                    self?.hasUnsavedChanges = true
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Sync highlight settings
+        $selectedHighlightColor
+            .sink { [weak self] color in
+                self?.annotationsService.updateHighlightColor(color)
+            }
+            .store(in: &cancellables)
+        
+        $highlightOpacity
+            .sink { [weak self] opacity in
+                self?.annotationsService.updateHighlightOpacity(opacity)
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Document Loading
@@ -50,6 +80,11 @@ final class EditService: ObservableObject {
         if let document = pdfStorage.documents.first(where: { $0.id == documentId.uuidString }) {
             self.pdfDocument = document.pdf
             self.currentPageIndex = 0
+            
+            // Configure annotations service
+            if let pdfDoc = document.pdf {
+                annotationsService.configure(document: pdfDoc, pageIndex: currentPageIndex)
+            }
         }
     }
     
@@ -90,17 +125,12 @@ final class EditService: ObservableObject {
         showingSignatureInsertMode = false
     }
     
-    // MARK: - Highlight Tools
+    // MARK: - Highlight Tools (via AnnotationsService)
     
-    func applyHighlight(at point: CGPoint, in bounds: CGRect) {
-        guard selectedTool == .highlight,
-              let document = pdfDocument,
-              let page = document.page(at: currentPageIndex) else { return }
+    func handleTextSelection(selectedText: String, bounds: CGRect, geometrySize: CGSize) {
+        guard selectedTool == .highlight else { return }
         
-        // TODO: Implement highlight annotation
-        // This is where we'd add highlight annotation to PDF
-        print("Applying highlight at: \(point) with color: \(selectedHighlightColor.title)")
-        
+        annotationsService.addHighlightAnnotation(selectedText: selectedText, bounds: bounds)
         hasUnsavedChanges = true
     }
     
@@ -116,15 +146,20 @@ final class EditService: ObservableObject {
     
     func insertImage(_ image: UIImage, at point: CGPoint) {
         guard selectedTool == .addImage,
-              let document = pdfDocument,
-              let page = document.page(at: currentPageIndex) else { return }
+              let document = pdfDocument else { return }
         
-        // TODO: Implement image insertion
-        print("Inserting image at: \(point)")
+        let geometrySize = insertionGeometry != .zero ? insertionGeometry : CGSize(width: 400, height: 600)
+        annotationsService.addImageAnnotation(image: image, at: point, in: geometrySize)
         
         hasUnsavedChanges = true
         showingImageInsertMode = false
         selectedTool = nil
+        insertionPoint = .zero
+    }
+    
+    func insertImageAtStoredPoint(_ image: UIImage) {
+        guard insertionPoint != .zero else { return }
+        insertImage(image, at: insertionPoint)
     }
     
     func cancelImageInsertion() {
@@ -140,14 +175,11 @@ final class EditService: ObservableObject {
         showingSignatureInsertMode = true
     }
     
-    func insertSignature(at point: CGPoint) {
+    func insertSignature(at point: CGPoint, geometrySize: CGSize) {
         guard selectedTool == .signature,
-              let signature = currentSignature,
-              let document = pdfDocument,
-              let page = document.page(at: currentPageIndex) else { return }
+              let signature = currentSignature else { return }
         
-        // TODO: Implement signature insertion
-        print("Inserting signature at: \(point)")
+        annotationsService.addImageAnnotation(image: signature, at: point, in: geometrySize)
         
         hasUnsavedChanges = true
         showingSignatureInsertMode = false
@@ -189,11 +221,14 @@ final class EditService: ObservableObject {
               currentPageIndex < document.pageCount - 1 else { return }
         
         currentPageIndex += 1
+        annotationsService.updateCurrentPage(currentPageIndex)
     }
     
     func goToPreviousPage() {
         guard currentPageIndex > 0 else { return }
+        
         currentPageIndex -= 1
+        annotationsService.updateCurrentPage(currentPageIndex)
     }
     
     func goToPage(_ index: Int) {
@@ -201,6 +236,7 @@ final class EditService: ObservableObject {
               index >= 0 && index < document.pageCount else { return }
         
         currentPageIndex = index
+        annotationsService.updateCurrentPage(currentPageIndex)
     }
     
     // MARK: - Save Changes
@@ -217,8 +253,20 @@ final class EditService: ObservableObject {
             isProcessing = false
         }
         
-        // TODO: Save the modified PDF document
-        // This would involve saving the document with annotations back to storage
+        // Save annotations
+        annotationsService.saveAnnotations()
+        
+        // Find and update document in storage
+        if let docIndex = pdfStorage.documents.firstIndex(where: { $0.id == documentId.uuidString }) {
+            var updatedDoc = pdfStorage.documents[docIndex]
+            updatedDoc.pdf = document
+            pdfStorage.documents[docIndex] = updatedDoc
+            
+            // Write to file if URL exists
+            if let url = updatedDoc.url {
+                document.write(to: url)
+            }
+        }
         
         hasUnsavedChanges = false
     }
@@ -226,6 +274,7 @@ final class EditService: ObservableObject {
     func discardChanges() {
         // Reload original document
         loadDocument()
+        annotationsService.discardAnnotations()
         hasUnsavedChanges = false
         selectedTool = nil
         resetToolStates()

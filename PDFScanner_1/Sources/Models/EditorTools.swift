@@ -56,6 +56,7 @@ enum HighlightColor: String, CaseIterable {
     case red = "red"
     case orange = "orange"
     case purple = "purple"
+    case clear = "clear"
     
     var color: UIColor {
         switch self {
@@ -71,6 +72,8 @@ enum HighlightColor: String, CaseIterable {
             return .systemOrange
         case .purple:
             return .systemPurple
+        case .clear:
+            return .clear
         }
     }
     
@@ -88,6 +91,12 @@ enum HighlightColor: String, CaseIterable {
             return "Orange"
         case .purple:
             return "Purple"
+        case .clear:
+            return "Clear"
         }
+    }
+    
+    var isClearMode: Bool {
+        return self == .clear
     }
 }

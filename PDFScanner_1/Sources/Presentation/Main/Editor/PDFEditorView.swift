@@ -18,8 +18,9 @@ struct PDFEditorView: UIViewRepresentable {
         // Set delegate for interactions
         pdfView.delegate = context.coordinator
         
-        // Add gesture recognizers based on selected tool
+        // Add gesture recognizers and notifications
         setupGestureRecognizers(for: pdfView, coordinator: context.coordinator)
+        setupNotifications(for: pdfView, coordinator: context.coordinator)
         
         return pdfView
     }
@@ -44,9 +45,6 @@ struct PDFEditorView: UIViewRepresentable {
     }
     
     private func setupGestureRecognizers(for pdfView: PDFView, coordinator: Coordinator) {
-        // Remove existing gestures
-        pdfView.gestureRecognizers?.removeAll()
-        
         // Add tap gesture for tool interactions
         let tapGesture = UITapGestureRecognizer(target: coordinator, action: #selector(coordinator.handleTap(_:)))
         tapGesture.numberOfTapsRequired = 1
@@ -56,11 +54,37 @@ struct PDFEditorView: UIViewRepresentable {
         coordinator.tapGesture = tapGesture
     }
     
+    private func setupNotifications(for pdfView: PDFView, coordinator: Coordinator) {
+        // Selection changed notification for highlights
+        NotificationCenter.default.addObserver(
+            coordinator,
+            selector: #selector(coordinator.handleSelectionChanged(notification:)),
+            name: .PDFViewSelectionChanged,
+            object: pdfView
+        )
+        
+        // Annotation hit notification for notes
+        NotificationCenter.default.addObserver(
+            coordinator,
+            selector: #selector(coordinator.handleAnnotationHit(notification:)),
+            name: .PDFViewAnnotationHit,
+            object: pdfView
+        )
+    }
+    
     private func updateGestureRecognizers(for pdfView: PDFView, coordinator: Coordinator) {
         guard let tapGesture = coordinator.tapGesture else { return }
         
         // Enable/disable based on selected tool
-        tapGesture.isEnabled = editService.selectedTool != nil
+        switch editService.selectedTool {
+        case .highlight:
+            // For highlights, we rely on text selection, not tap
+            tapGesture.isEnabled = false
+        case .addImage, .signature:
+            tapGesture.isEnabled = true
+        default:
+            tapGesture.isEnabled = false
+        }
     }
     
     class Coordinator: NSObject, PDFViewDelegate {
@@ -75,13 +99,12 @@ struct PDFEditorView: UIViewRepresentable {
             guard let pdfView = gesture.view as? PDFView else { return }
             
             let point = gesture.location(in: pdfView)
-            let bounds = pdfView.bounds
+            
+            // Get geometry size for coordinate conversion
+            let geometrySize = pdfView.bounds.size
             
             // Handle tap based on selected tool
             switch parent.editService.selectedTool {
-            case .highlight:
-                parent.editService.applyHighlight(at: point, in: bounds)
-                
             case .addImage:
                 if parent.editService.showingImageInsertMode {
                     // Store insertion point and show image picker
@@ -91,12 +114,45 @@ struct PDFEditorView: UIViewRepresentable {
                 
             case .signature:
                 if parent.editService.showingSignatureInsertMode {
-                    parent.editService.insertSignature(at: point)
+                    parent.editService.insertSignature(at: point, geometrySize: geometrySize)
                 }
                 
             default:
                 break
             }
+        }
+        
+        @objc func handleSelectionChanged(notification: Notification) {
+            guard let pdfView = notification.object as? PDFView,
+                  let page = pdfView.currentPage,
+                  let selection = pdfView.currentSelection,
+                  let selectedText = selection.string else { return }
+            
+            // Handle text selection for highlights
+            if parent.editService.selectedTool == .highlight {
+                let bounds = selection.bounds(for: page)
+                let geometrySize = pdfView.bounds.size
+                
+                // Use AnnotationsService to handle highlight
+                parent.editService.handleTextSelection(
+                    selectedText: selectedText,
+                    bounds: bounds,
+                    geometrySize: geometrySize
+                )
+                
+                // Clear selection after processing
+                pdfView.clearSelection()
+            }
+        }
+        
+        @objc func handleAnnotationHit(notification: Notification) {
+            guard let userInfo = notification.userInfo,
+                  let annotation = userInfo["PDFAnnotationHit"] as? PDFAnnotation,
+                  let noteText = annotation.contents else { return }
+            
+            // Handle note annotation taps
+            print("Note tapped: \(noteText)")
+            // TODO: Show note editing interface
         }
         
         // MARK: - PDFViewDelegate
@@ -108,6 +164,11 @@ struct PDFEditorView: UIViewRepresentable {
         func pdfViewParentViewController(for sender: PDFView) -> UIViewController? {
             // Return parent view controller if needed for presentations
             return nil
+        }
+        
+        deinit {
+            NotificationCenter.default.removeObserver(self, name: .PDFViewSelectionChanged, object: nil)
+            NotificationCenter.default.removeObserver(self, name: .PDFViewAnnotationHit, object: nil)
         }
     }
 }
