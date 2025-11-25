@@ -246,28 +246,29 @@ final class AnnotationsService: ObservableObject {
     
     // MARK: - Image Annotations
     
-    func addImageAnnotation(image: UIImage, at position: CGPoint, in geometrySize: CGSize) {
+    func addImageAnnotation(image: UIImage, at location: CGPoint, in geometrySize: CGSize) {
         guard let document = currentDocument,
               let page = document.page(at: currentPageIndex) else { return }
         
-        let bounds = calculateTransformedLocation(
-            location: position,
-            geometrySize: geometrySize,
-            contentSize: image.size
-        )
+        let contentSize = CGSize(width: image.size.width * 0.5, height: image.size.height * 0.5) // подберите масштаб
+        let bounds = calculateTransformedLocation(location: location, geometrySize: geometrySize, contentSize: contentSize)
+        addImageAnnotation(image: image, bounds: bounds, on: page)
+    }
+    
+    func addImageAnnotation(image: UIImage?, bounds: CGRect, on page: PDFPage) {
+        guard let image else { return }
+        let annotation = ImageAnnotation(bounds: bounds, image: image)
+        page.addAnnotation(annotation)
         
-        let imageAnnotation = ImageAnnotation(bounds: bounds, image: image)
-        page.addAnnotation(imageAnnotation)
-        
-        let identifiableAnnotation = IdentifiablePDFAnnotation(
-            annotation: imageAnnotation,
-            position: position,
+        let identifiable = IdentifiablePDFAnnotation(
+            annotation: annotation,
+            position: bounds.origin,
             midPosition: CGPoint(x: bounds.midX, y: bounds.midY),
             boundingBox: bounds,
-            scale: 1.0
+            scale: 1.0,
+            image: image
         )
-        
-        annotations.append(identifiableAnnotation)
+        annotations.append(identifiable)
         hasUnsavedAnnotations = true
     }
     
@@ -355,6 +356,7 @@ struct IdentifiablePDFAnnotation: Identifiable {
     var midPosition: CGPoint
     var boundingBox: CGRect
     var scale: CGFloat
+    var image: UIImage?
 }
 
 // MARK: - Custom Annotation Classes

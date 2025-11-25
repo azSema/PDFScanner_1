@@ -1,61 +1,47 @@
 import Foundation
 
-enum DocumentAction: String, CaseIterable {
-    case preview = "preview"
-    case edit = "edit"
-    case convert = "convert"
-    case rename = "rename"
-    case share = "share"
-    case toggleFavorite = "toggleFavorite"
-    case delete = "delete"
+enum DocumentAction: CaseIterable {
+    case preview
+    case edit
+    case convert
+    case rename
+    case share
+    case toggleFavorite
+    case delete
     
     var title: String {
         switch self {
-        case .preview:
-            return "Preview"
-        case .edit:
-            return "Edit"
-        case .convert:
-            return "Convert to Images"
-        case .rename:
-            return "Rename"
-        case .share:
-            return "Share"
-        case .toggleFavorite:
-            return "Toggle Favorite"
-        case .delete:
-            return "Delete"
+        case .preview: "Preview"
+        case .edit: "Edit"
+        case .convert: "Convert to Images"
+        case .rename: "Rename"
+        case .share: "Share"
+        case .toggleFavorite: "Toggle Favorite"
+        case .delete: "Delete"
         }
     }
     
     var systemImage: String {
         switch self {
-        case .preview:
-            return "eye"
-        case .edit:
-            return "square.and.pencil"
-        case .convert:
-            return "arrow.triangle.2.circlepath"
-        case .rename:
-            return "pencil"
-        case .share:
-            return "square.and.arrow.up"
-        case .toggleFavorite:
-            return "heart"
-        case .delete:
-            return "trash"
+        case .preview: "eye"
+        case .edit: "square.and.pencil"
+        case .convert: "arrow.triangle.2.circlepath"
+        case .rename: "pencil"
+        case .share: "square.and.arrow.up"
+        case .toggleFavorite: "heart"
+        case .delete: "trash"
         }
     }
     
     var isDestructive: Bool {
-        return self == .delete
+        self == .delete
     }
     
     func favoriteTitle(for document: DocumentDTO) -> String {
-        return document.isFavorite ? "Remove from Favorites" : "Add to Favorites"
+        document.isFavorite ? "Remove from Favorites" : "Add to Favorites"
     }
     
     func favoriteIcon(for document: DocumentDTO) -> String {
-        return document.isFavorite ? "heart.slash" : "heart"
+        document.isFavorite ? "heart.slash" : "heart"
     }
 }

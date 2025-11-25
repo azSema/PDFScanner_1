@@ -1,36 +1,34 @@
 import SwiftUI
 import FloatingButton
-import UniformTypeIdentifiers
 
+/// Главный экран с недавними документами и быстрыми действиями
 struct DashboardView: View {
-    
-    @StateObject private var viewModel = DashboardViewModel()
-    @StateObject private var actionsManager = DocumentActionsManager()
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
     
+    @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var actionsManager = DocumentActionsManager()
+    
     var body: some View {
         ZStack {
-            Color.appBackground
-                .ignoresSafeArea()
+            backgroundColor
             
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    headerSection
-                    mainScanButton
-                    documentsSection
-                    Spacer(minLength: 100)
+            VStack {
+                headerSection
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        mainScanButton
+                        documentsSection
+                    }
                 }
-                .padding(.horizontal, 16)
-            }
-            .refreshable {
-                viewModel.refreshData()
             }
             
             floatingButtonMenu
         }
         .onAppear {
             actionsManager.configure(with: pdfStorage, router: router)
+            viewModel.configure(pdfStorage: pdfStorage)
         }
         .background {
             DocumentActionsView(actionsManager: actionsManager)
@@ -40,12 +38,7 @@ struct DashboardView: View {
             allowedContentTypes: viewModel.allowedContentTypes,
             allowsMultipleSelection: true
         ) { result in
-            switch result {
-            case .success(let urls):
-                viewModel.handleImportedFiles(urls)
-            case .failure(let error):
-                print("File import error: \(error.localizedDescription)")
-            }
+            viewModel.processImportResult(result)
         }
         .sheet(isPresented: $viewModel.isShowingScanner) {
             if viewModel.isScannerSupported {
@@ -67,13 +60,22 @@ struct DashboardView: View {
     }
 }
 
+// дальше UI-секции без изменений
+
 // MARK: - UI Sections
 
-extension DashboardView {
+private extension DashboardView {
     
-    // MARK: - Header Section
+    // MARK: Background Color
     
-    private var headerSection: some View {
+    var backgroundColor: some View {
+        Color.appBackground
+            .ignoresSafeArea()
+    }
+    
+    // MARK: Header Section
+    
+    var headerSection: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("PDF Scanner")
@@ -88,27 +90,27 @@ extension DashboardView {
             Spacer()
             
             Button {
-                // Settings action
+                // TODO: Реализовать флоу настроек
             } label: {
                 Image(systemName: "gearshape.fill")
                     .font(.title2)
                     .foregroundStyle(.appTextSecondary)
             }
         }
-        .padding(.vertical, 20)
+        .padding(20)
     }
     
-    // MARK: - Main Scan Button
+    // MARK: Main Scan Button
     
-    private var mainScanButton: some View {
+    var mainScanButton: some View {
         VStack(spacing: 16) {
-            Button(action: {
-                playHaptic(.medium)
+            Button {
+                HapticService.shared.impact(.medium)
                 viewModel.startScanning()
-            }) {
+            } label: {
                 HStack(spacing: 16) {
                     Image(systemName: "doc.text.viewfinder")
-                        .font(.system(size: 32, weight: .medium))
+                        .font(.medium(32))
                         .foregroundStyle(.white)
                     
                     VStack(alignment: .leading, spacing: 4) {
@@ -134,45 +136,42 @@ extension DashboardView {
                 .shadow(color: .appPrimary.opacity(0.3), radius: 12, x: 0, y: 8)
             }
             
-            Button(action: {
-                playHaptic(.light)
-                viewModel.showFileImporter()
-            }) {
+            Button {
+                HapticService.shared.impact(.light)
+                viewModel.isShowingFileImporter = true
+            } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "folder.badge.plus")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.appText)
-                    
                     Text("Or add manually")
-                        .font(.medium(16))
-                        .foregroundStyle(.appText)
                         .underline()
                 }
+                .font(.medium(16))
+                .foregroundStyle(.appText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
         }
         .padding(.bottom, 32)
+        .padding(.horizontal, 16)
     }
     
-    // MARK: - Documents Section
-    
-    private var documentsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if pdfStorage.documents.isEmpty {
-                AppEmptyView(
-                    title: "No Documents Yet",
-                    subtitle: "Start scanning documents to see them here. Tap the scan button above to get started.",
-                    imageName: "hand.tap"
-                )
-                .padding(.top, 20)
-            } else {
+    // MARK: Documents Section
+    @ViewBuilder
+    var documentsSection: some View {
+        if pdfStorage.documents.isEmpty {
+            AppEmptyView(
+                title: "No Documents Yet",
+                subtitle: "Start scanning documents to see them here. Tap the scan button above to get started."
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 16) {
                 Text("Recent Scans")
                     .font(.semiBold(20))
                     .foregroundStyle(.appText)
+                    .padding(.horizontal, 20)
                 
                 RecentScansRow(
-                    documents: Array(pdfStorage.documents.prefix(5)), // Show last 5 documents
+                    documents: pdfStorage.documents,
                     onDocumentTap: { document in
                         actionsManager.showActionSheet(for: document)
                     },
@@ -180,15 +179,13 @@ extension DashboardView {
                 )
             }
         }
-        .padding(.bottom, 24)
     }
 }
 
 // MARK: - Floating Button Menu
 
-extension DashboardView {
-    
-    private var floatingButtonMenu: some View {
+private extension DashboardView {
+    var floatingButtonMenu: some View {
         VStack {
             Spacer()
             
@@ -212,74 +209,65 @@ extension DashboardView {
         }
     }
     
-    private var mainFloatingButton: AnyView {
-        AnyView(
-            Button(action: {
-                playHaptic(.light)
-                withAnimation(.spring(duration: 0.3)) {
-                    viewModel.isFloatingMenuOpen.toggle()
-                }
-            }) {
-                Image(systemName: viewModel.isFloatingMenuOpen ? "xmark" : "plus")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-                    .rotationEffect(.degrees(viewModel.isFloatingMenuOpen ? 180 : 0))
-                    .animation(.easeInOut(duration: 0.2), value: viewModel.isFloatingMenuOpen)
-            }
-            .frame(width: 56, height: 56)
-            .background(.appPrimary)
-            .clipShape(Circle())
-            .shadow(color: .appPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
-        )
+    var mainFloatingButton: some View {
+        Button {
+            HapticService.shared.impact(.light)
+            viewModel.isFloatingMenuOpen.toggle()
+        } label: {
+            Image(systemName: viewModel.isFloatingMenuOpen ? "xmark" : "plus")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+        }
+        .frame(width: 56, height: 56)
+        .background(.appPrimary)
+        .clipShape(.circle)
+        .shadow(color: .appPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
     }
     
-    private var menuButtons: [AnyView] {
+    var menuButtons: [some View] {
         [
-            createMenuButton(icon: "arrow.triangle.2.circlepath", action: { 
-                router.push(.main(.converter)) 
-            }),
-            createMenuButton(icon: "pencil.and.outline", action: { 
-                router.push(.main(.documentSelection(destination: .editor))) 
-            }),
-            createMenuButton(icon: "doc.on.doc", action: { 
-                router.push(.main(.merge)) 
-            }),
-            createMenuButton(icon: "clock.arrow.circlepath", action: { 
-                router.push(.main(.history)) 
-            })
+            createMenuButton(icon: "arrow.triangle.2.circlepath") {
+                router.push(.main(.converter))
+            },
+            createMenuButton(icon: "pencil.and.outline") {
+                router.push(.main(.documentSelection(destination: .editor)))
+            },
+            createMenuButton(icon: "doc.on.doc") {
+                router.push(.main(.merge))
+            },
+            createMenuButton(icon: "clock.arrow.circlepath") {
+                router.push(.main(.history))
+            }
         ]
     }
     
-    private func createMenuButton(icon: String, action: @escaping () -> Void) -> AnyView {
-        AnyView(
-            Button(action: {
-                playHaptic(.medium)
-                action()
-                withAnimation(.spring(duration: 0.3)) {
-                    viewModel.isFloatingMenuOpen = false
-                }
-            }) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(.white)
+    func createMenuButton(icon: String, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticService.shared.impact(.medium)
+            action()
+            withAnimation(.spring(duration: 0.3)) {
+                viewModel.isFloatingMenuOpen = false
             }
-            .frame(width: 48, height: 48)
-            .background(.appSecondary)
-            .clipShape(Circle())
-            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-        )
+        } label: {
+            Image(systemName: icon)
+                .font(.medium(20))
+                .foregroundStyle(.white)
+        }
+        .frame(width: 48, height: 48)
+        .background(.appSecondary)
+        .clipShape(.circle)
+        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
     }
 }
 
 // MARK: - Scanner Support Views
 
 extension DashboardView {
-    
-    private var unsupportedDeviceView: some View {
+    var unsupportedDeviceView: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 60))
+                .font(.regular(60))
                 .foregroundStyle(.appWarning)
             
             Text("Scanner Not Available")
@@ -297,30 +285,17 @@ extension DashboardView {
         .padding(.horizontal, 32)
     }
     
-    private var processingOverlay: some View {
+    var processingOverlay: some View {
         ZStack {
             Color.black.opacity(0.6)
                 .ignoresSafeArea()
             
-            VStack(spacing: 16) {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .progressViewStyle(CircularProgressViewStyle(tint: .appPrimary))
-                
-                Text("Processing Images...")
-                    .font(.medium(16))
-                    .foregroundStyle(.white)
-            }
-            .padding(32)
-            .background(.appSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            ProgressView()
+                .scaleEffect(1.5)
+                .progressViewStyle(CircularProgressViewStyle(tint: .appPrimary))
+                .padding(32)
+                .background(.appSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
         }
-    }
-}
-
-#Preview {
-    NavigationStack {
-        DashboardView()
-            .environmentObject(Router())
     }
 }

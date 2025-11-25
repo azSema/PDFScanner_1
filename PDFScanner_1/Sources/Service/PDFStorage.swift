@@ -35,7 +35,6 @@ final class PDFStorage: ObservableObject {
         
         createDocumentsDirectoryIfNeeded()
         loadDocuments()
-        loadSampleDocuments()
     }
     
     // MARK: - Public Methods
@@ -161,45 +160,6 @@ final class PDFStorage: ObservableObject {
             url: url,
             isFavorite: metadata?.isFavorite ?? false
         )
-    }
-    
-    private func loadSampleDocuments() {
-        // Load sample PDFs from Bundle
-        print("📄 Loading sample documents...")
-        loadBundlePDF(named: "pdf1", displayName: "Sample Document 1")
-        loadBundlePDF(named: "pdf2", displayName: "Sample Document 2")
-        
-        print("📄 Loaded \(documents.count) documents from Bundle")
-    }
-    
-    private func loadBundlePDF(named fileName: String, displayName: String) {
-        print("📄 Attempting to load \(fileName).pdf from Bundle...")
-        
-        guard let url = Bundle.main.url(forResource: fileName, withExtension: "pdf") else {
-            print("❌ Could not find \(fileName).pdf in Bundle")
-            return
-        }
-        
-        print("📄 Found PDF at: \(url)")
-        
-        guard let pdfDocument = PDFDocument(url: url) else {
-            print("❌ Could not create PDFDocument from \(fileName).pdf")
-            return
-        }
-        
-        print("✅ Successfully loaded \(fileName).pdf with \(pdfDocument.pageCount) pages")
-        
-        let mockDocument = DocumentDTO(
-            id: UUID().uuidString,
-            pdf: pdfDocument,
-            name: displayName,
-            type: .pdf,
-            date: Date().addingTimeInterval(-Double.random(in: 86400...604800)), // 1-7 days ago
-            url: url,
-            isFavorite: Bool.random()
-        )
-        
-        documents.append(mockDocument)
     }
     
     // MARK: - Metadata Management

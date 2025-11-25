@@ -2,15 +2,8 @@ import SwiftUI
 import VisionKit
 
 struct ScannerView: View {
-    
-    let mode: ScanMode
     @EnvironmentObject private var router: Router
-    @StateObject private var viewModel: ScannerViewModel
-    
-    init(mode: ScanMode) {
-        self.mode = mode
-        self._viewModel = StateObject(wrappedValue: ScannerViewModel(mode: mode))
-    }
+    @StateObject private var viewModel = ScannerViewModel()
     
     var body: some View {
         VStack(spacing: 24) {
@@ -64,10 +57,6 @@ extension ScannerView {
             Text("Document Scanner")
                 .font(.bold(28))
                 .foregroundStyle(.appText)
-            
-            Text("Mode: \(mode.displayName)")
-                .font(.medium(16))
-                .foregroundStyle(.appTextSecondary)
         }
     }
     
@@ -258,22 +247,5 @@ extension ScannerView {
             .background(.appSurface)
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
-    }
-}
-
-extension ScanMode {
-    var displayName: String {
-        switch self {
-        case .single: return "Single Page"
-        case .multi: return "Multi Page"
-        case .batch: return "Batch Scan"
-        }
-    }
-}
-
-#Preview {
-    NavigationStack {
-        ScannerView(mode: .single)
-            .environmentObject(Router())
     }
 }

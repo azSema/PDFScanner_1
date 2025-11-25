@@ -4,19 +4,25 @@ import PDFKit
 struct ImageOverlay: View {
     @ObservedObject var editService: EditService
     @Binding var annotation: IdentifiablePDFAnnotation
+    
     @State private var isDragging = false
     @State private var isScaling = false
     @State private var showMenu = false
+    @State private var didSetupInitialScale = false
+    @State private var baseScale: CGFloat = 1.0
+    @State private var cornerDragState: CornerDragState? = nil  // <— новое
+    
+    enum CornerDragState {
+        case topLeft, topRight, bottomLeft, bottomRight
+    }
     
     let geometry: GeometryProxy
     
     var body: some View {
-        // Get image from annotation
         let image = getAnnotationImage()
         let width = (image?.size.width ?? 100) * annotation.scale
         let height = (image?.size.height ?? 100) * annotation.scale
         
-        // Convert PDF coordinates to view coordinates on first appearance
         let viewPosition = convertedViewPosition(for: CGSize(width: width, height: height))
         let clampedPosition = self.clampedPosition(for: CGSize(width: width, height: height), viewPosition: viewPosition)
         
@@ -41,110 +47,196 @@ struct ImageOverlay: View {
                             }
                         }
                     }
-                    .overlay(
-                        // Border overlay when dragging or scaling
-                        Rectangle()
-                            .stroke(Color.blue.opacity(0.7), lineWidth: 2)
-                            .opacity(isDragging || isScaling ? 1 : 0)
-                    )
             }
             
-            // Interactive border and corners when dragging or scaling
-            if isDragging || isScaling {
-                let rectangleWidth = width
-                let rectangleHeight = height
-                let inset: CGFloat = 1
-                
-                Rectangle()
-                    .stroke(Color.blue, lineWidth: 2)
-                    .frame(width: rectangleWidth - inset, height: rectangleHeight - inset)
-                    .position(clampedPosition)
-                
-                // Corner handles for visual feedback
-                Group {
-                    // Top-left corner
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 12, height: 12)
-                        .position(x: clampedPosition.x - rectangleWidth/2 + 6, 
-                                y: clampedPosition.y - rectangleHeight/2 + 6)
-                    
-                    // Top-right corner  
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 12, height: 12)
-                        .position(x: clampedPosition.x + rectangleWidth/2 - 6, 
-                                y: clampedPosition.y - rectangleHeight/2 + 6)
-                    
-                    // Bottom-left corner
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 12, height: 12)
-                        .position(x: clampedPosition.x - rectangleWidth/2 + 6, 
-                                y: clampedPosition.y + rectangleHeight/2 - 6)
-                    
-                    // Bottom-right corner
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 12, height: 12)
-                        .position(x: clampedPosition.x + rectangleWidth/2 - 6, 
-                                y: clampedPosition.y + rectangleHeight/2 - 6)
-                }
-            }
+            // Border - ВСЕГДА видимый
+            Rectangle()
+                .stroke(Color.blue.opacity(0.7), lineWidth: 2)
+                .frame(width: width, height: height)
+                .position(clampedPosition)
+            
+            // Corner handles - ВСЕГДА видимые
+            cornerHandles(
+                width: width,
+                height: height,
+                position: clampedPosition
+            )
+        }
+        .onAppear {
+            guard !didSetupInitialScale, let image else { return }
+            didSetupInitialScale = true
+            
+            let targetRelativeWidth: CGFloat = 0.15
+            let targetWidth = geometry.size.width * targetRelativeWidth
+            let ratio = targetWidth / image.size.width
+            
+            let initialScale = min(max(ratio, 0.05), 0.5)
+            baseScale = initialScale
+            annotation.scale = initialScale
         }
         .gesture(
-            DragGesture()
+            // Drag для перемещения (только если не тапаем по углу)
+            DragGesture(minimumDistance: 5)
                 .onChanged { value in
-                    print("🔄 Image drag changed: \(value.location)")
+                    // Проверяем, не тапаем ли мы по углу
+                    if isPointNearCorner(value.startLocation, width: width, height: height, position: clampedPosition) {
+                        return  // Игнорируем drag, если начали с угла
+                    }
+                    
                     let clampedX = min(max(value.location.x, width/2), geometry.size.width - width/2)
                     let clampedY = min(max(value.location.y, height/2), geometry.size.height - height/2)
                     
-                    // Update the annotation directly
                     annotation.midPosition = CGPoint(x: clampedX, y: clampedY)
                     annotation.position = CGPoint(x: clampedX, y: clampedY)
                     isDragging = true
                 }
                 .onEnded { _ in
-                    print("🏁 Image drag ended at: \(annotation.midPosition)")
                     isDragging = false
-                    saveImagePosition()
-                }
-        )
-        .gesture(
-            MagnificationGesture()
-                .onChanged { scale in
-                    print("🔍 Image scale changed: \(scale)")
-                    // Гибкий диапазон масштабирования как у подписей
-                    let minScale: CGFloat = 0.1  
-                    let maxScale: CGFloat = 5.0  
-                    let clampedScale = min(max(scale, minScale), maxScale)
-                    annotation.scale = clampedScale
-                    isScaling = true
-                }
-                .onEnded { _ in
-                    print("📏 Image scale ended: \(annotation.scale)")
-                    isScaling = false
                     saveImagePosition()
                 }
         )
     }
     
+    // MARK: - Corner Handles
+    
+    @ViewBuilder
+    private func cornerHandles(width: CGFloat, height: CGFloat, position: CGPoint) -> some View {
+        let cornerSize: CGFloat = 20
+        let halfWidth = width / 2
+        let halfHeight = height / 2
+        
+        Group {
+            // Top-left corner
+            cornerHandle(
+                position: CGPoint(
+                    x: position.x - halfWidth,
+                    y: position.y - halfHeight
+                ),
+                corner: .topLeft,
+                width: width,
+                height: height,
+                centerPosition: position
+            )
+            
+            // Top-right corner
+            cornerHandle(
+                position: CGPoint(
+                    x: position.x + halfWidth,
+                    y: position.y - halfHeight
+                ),
+                corner: .topRight,
+                width: width,
+                height: height,
+                centerPosition: position
+            )
+            
+            // Bottom-left corner
+            cornerHandle(
+                position: CGPoint(
+                    x: position.x - halfWidth,
+                    y: position.y + halfHeight
+                ),
+                corner: .bottomLeft,
+                width: width,
+                height: height,
+                centerPosition: position
+            )
+            
+            // Bottom-right corner
+            cornerHandle(
+                position: CGPoint(
+                    x: position.x + halfWidth,
+                    y: position.y + halfHeight
+                ),
+                corner: .bottomRight,
+                width: width,
+                height: height,
+                centerPosition: position
+            )
+        }
+    }
+    
+    @ViewBuilder
+    private func cornerHandle(
+        position: CGPoint,
+        corner: CornerDragState,
+        width: CGFloat,
+        height: CGFloat,
+        centerPosition: CGPoint
+    ) -> some View {
+        Circle()
+            .fill(Color.blue)
+            .frame(width: 20, height: 20)
+            .position(position)
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        cornerDragState = corner
+                        isScaling = true
+                        
+                        // Вычисляем новую ширину и высоту на основе движения угла
+                        let deltaX = value.translation.width
+                        let deltaY = value.translation.height
+                        
+                        // Для каждого угла своя логика изменения размера
+                        let newWidth: CGFloat
+                        let newHeight: CGFloat
+                        
+                        switch corner {
+                        case .topLeft:
+                            newWidth = max(50, width - deltaX)
+                            newHeight = max(50, height - deltaY)
+                        case .topRight:
+                            newWidth = max(50, width + deltaX)
+                            newHeight = max(50, height - deltaY)
+                        case .bottomLeft:
+                            newWidth = max(50, width - deltaX)
+                            newHeight = max(50, height + deltaY)
+                        case .bottomRight:
+                            newWidth = max(50, width + deltaX)
+                            newHeight = max(50, height + deltaY)
+                        }
+                        
+                        // Вычисляем новый scale на основе изменения размера
+                        guard let image = getAnnotationImage() else { return }
+                        let scaleX = newWidth / image.size.width
+                        let scaleY = newHeight / image.size.height
+                        let newScale = min(max(min(scaleX, scaleY), 0.05), 3.0)  // ограничиваем диапазон
+                        
+                        annotation.scale = newScale
+                    }
+                    .onEnded { _ in
+                        baseScale = annotation.scale
+                        cornerDragState = nil
+                        isScaling = false
+                        saveImagePosition()
+                    }
+            )
+    }
+    
+    private func isPointNearCorner(_ point: CGPoint, width: CGFloat, height: CGFloat, position: CGPoint) -> Bool {
+        let cornerSize: CGFloat = 30  // зона захвата угла
+        let halfWidth = width / 2
+        let halfHeight = height / 2
+        
+        let corners = [
+            CGPoint(x: position.x - halfWidth, y: position.y - halfHeight),  // top-left
+            CGPoint(x: position.x + halfWidth, y: position.y - halfHeight),  // top-right
+            CGPoint(x: position.x - halfWidth, y: position.y + halfHeight),  // bottom-left
+            CGPoint(x: position.x + halfWidth, y: position.y + halfHeight)   // bottom-right
+        ]
+        
+        return corners.contains { corner in
+            abs(point.x - corner.x) < cornerSize && abs(point.y - corner.y) < cornerSize
+        }
+    }
+    
     private func convertedViewPosition(for size: CGSize) -> CGPoint {
-        // If midPosition is normalized (0-1), convert to view coordinates
         if annotation.midPosition.x <= 1.0 && annotation.midPosition.y <= 1.0 {
             let viewX = annotation.midPosition.x * geometry.size.width
             let viewY = annotation.midPosition.y * geometry.size.height
-            
-            print("🔄 Converting normalized coordinates to view: \(viewX), \(viewY)")
-            
-            // Update annotation with actual view coordinates but only once
-            let viewPosition = CGPoint(x: viewX, y: viewY)
-            annotation.midPosition = viewPosition
-            
-            return viewPosition
+            return CGPoint(x: viewX, y: viewY)
         }
-        
-        // Already in view coordinates
         return annotation.midPosition
     }
     
@@ -238,7 +330,7 @@ struct ImageOverlay: View {
         annotation.annotation.bounds = newBounds
         annotation.boundingBox = newBounds
         
-        // Update position fields to match new bounds  
+        // Update position fields to match new bounds
         annotation.position = CGPoint(x: pdfCenterX, y: pdfCenterY)
         
         editService.hasUnsavedChanges = true

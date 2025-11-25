@@ -80,7 +80,7 @@ struct DocumentSelectionView: View {
             
             Button("Start Scanning") {
                 router.pop()
-                router.push(.main(.scanner(mode: .single)))
+                router.push(.main(.scanner))
             }
             .buttonStyle(PrimaryButtonStyle())
             .padding(.top, 16)

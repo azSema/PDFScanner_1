@@ -1,7 +1,7 @@
 import SwiftUI
 
+/// Основной flow приложения (главный NavigationStack)
 struct MainFlow: View {
-    
     @EnvironmentObject private var router: Router
     
     var body: some View {
@@ -12,9 +12,4 @@ struct MainFlow: View {
                 }
         }
     }
-}
-
-#Preview {
-    MainFlow()
-        .environmentObject(Router())
 }

@@ -14,6 +14,7 @@ struct OnboardingFlow: View {
     @State private var alertMessage = ""
     
     @State private var orientation = UIDevice.current.orientation
+    @State private var deviceType = DeviceManager.shared.deviceType
         
     var body: some View {
         ZStack {

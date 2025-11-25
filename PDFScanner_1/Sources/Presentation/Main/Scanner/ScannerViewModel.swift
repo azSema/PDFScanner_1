@@ -9,12 +9,7 @@ final class ScannerViewModel: ObservableObject {
     @Published var scannedImages: [UIImage] = []
     @Published var isProcessing: Bool = false
     
-    let mode: ScanMode
     private var cancellables = Set<AnyCancellable>()
-    
-    init(mode: ScanMode) {
-        self.mode = mode
-    }
     
     // MARK: - Actions
     
