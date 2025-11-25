@@ -2,9 +2,7 @@ import SwiftUI
 import Combine
 
 final class PremiumManager: ObservableObject {
-    
     @Published var isProcessing = false
-    
     @Published var hasSubscription = false
     
     func makePurchase() async {
@@ -17,12 +15,4 @@ final class PremiumManager: ObservableObject {
             }
         }
     }
-    
-}
-
-// MARK: - Features
-extension PremiumManager {
-    
-
-    
 }
