@@ -5,7 +5,10 @@ struct ConverterView: View {
     
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
+    @EnvironmentObject private var premium: PremiumManager
     @StateObject private var viewModel = ConversionViewModel()
+    
+    @AppStorage("convertCount") private var convertCount = 0
     
     var body: some View {
         VStack(spacing: 0) {
@@ -69,6 +72,11 @@ struct ConverterView: View {
     private var conversionCard: some View {
         VStack(spacing: 20) {
             Button("Select PDF Document") {
+                guard premium.canConvert(currentConvertsNumber: convertCount) else {
+                    premium.isShowingPaywall.toggle()
+                    return
+                }
+                convertCount += 1
                 viewModel.startConversion()
             }
             .font(.medium(18))

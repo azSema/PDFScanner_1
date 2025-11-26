@@ -7,24 +7,21 @@ struct PDFEditorView: UIViewRepresentable {
     
     func makeUIView(context: Context) -> PDFView {
         let pdfView = PDFView()
-        
-        // Configure PDF view
-        pdfView.backgroundColor = UIColor.systemBackground
+        pdfView.backgroundColor = .systemBackground
         pdfView.autoScales = true
         pdfView.displayMode = .singlePage
         pdfView.displayDirection = .horizontal
         pdfView.pageBreakMargins = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
-        
-        // Set delegate for interactions
+
+        if let scrollView = pdfView.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
+            scrollView.showsVerticalScrollIndicator = false
+            scrollView.showsHorizontalScrollIndicator = false
+        }
+
         pdfView.delegate = context.coordinator
-        
-        // Set PDFView reference in EditService for coordinate calculations
         editService.setPDFViewReference(pdfView)
-        
-        // Add gesture recognizers and notifications
         setupGestureRecognizers(for: pdfView, coordinator: context.coordinator)
         setupNotifications(for: pdfView, coordinator: context.coordinator)
-        
         return pdfView
     }
     
@@ -87,8 +84,15 @@ struct PDFEditorView: UIViewRepresentable {
         // Enable/disable based on selected tool
         switch editService.selectedTool {
         case .highlight:
-            // For highlights, we rely on text selection, not tap
+            // Для highlight отключаем tap gesture, чтобы не мешать выделению текста
             tapGesture.isEnabled = false
+            // ВАЖНО: Убеждаемся, что PDFView позволяет выделение текста
+            pdfView.isUserInteractionEnabled = true
+            // Отключаем другие жесты, которые могут мешать выделению
+            if let scrollView = pdfView.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
+                scrollView.panGestureRecognizer.isEnabled = true
+                scrollView.pinchGestureRecognizer?.isEnabled = true
+            }
         case .addImage, .signature:
             tapGesture.isEnabled = true
         default:
@@ -115,10 +119,11 @@ struct PDFEditorView: UIViewRepresentable {
             // Handle tap based on selected tool
             switch parent.editService.selectedTool {
             case .addImage:
-                if parent.editService.showingImageInsertMode {
-                    // Store insertion point and show image picker
-                    parent.editService.insertionPoint = point
-                    parent.editService.showingImagePicker = true
+                tapGesture?.isEnabled = true
+                // Отключаем zoom/pan жесты PDFView, чтобы не мешали overlay
+                if let scrollView = pdfView.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
+                    scrollView.panGestureRecognizer.isEnabled = false
+                    scrollView.pinchGestureRecognizer?.isEnabled = false
                 }
                 
             case .signature:

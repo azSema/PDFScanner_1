@@ -7,7 +7,6 @@ struct ContentView: View {
     @StateObject private var pdfStorage: PDFStorage = .init()
     
     var body: some View {
-        
         Group {
             if router.isOnboarding {
                 OnboardingFlow()
@@ -15,16 +14,19 @@ struct ContentView: View {
                 MainFlow()
             }
         }
+        .overlay(content: {
+            if premium.isShowingPaywall {
+                PaywallView()
+            }
+        })
         .overlay {
-             if premium.isProcessing {
-                 AppLoaderView()
-             }
-         }
-         .animation(.easeInOut, value: premium.isProcessing)
+            if premium.isProcessing {
+                AppLoaderView()
+            }
+        }
+        .animation(.easeInOut, value: premium.isProcessing)
         .environmentObject(router)
         .environmentObject(premium)
         .environmentObject(pdfStorage)
     }
-    
 }
-

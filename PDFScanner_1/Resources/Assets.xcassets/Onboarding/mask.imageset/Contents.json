@@ -1,0 +1,16 @@
+{
+  "images" : [
+    {
+      "filename" : "iPhone 14 Pro.png",
+      "idiom" : "iphone"
+    },
+    {
+      "filename" : "Lock Screen.png",
+      "idiom" : "ipad"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

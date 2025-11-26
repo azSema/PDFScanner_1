@@ -2,15 +2,11 @@ import SwiftUI
 import VisionKit
 
 struct ScannerView: View {
-    
-    let mode: ScanMode
     @EnvironmentObject private var router: Router
-    @StateObject private var viewModel: ScannerViewModel
+    @EnvironmentObject private var premium: PremiumManager
+    @StateObject private var viewModel = ScannerViewModel()
     
-    init(mode: ScanMode) {
-        self.mode = mode
-        self._viewModel = StateObject(wrappedValue: ScannerViewModel(mode: mode))
-    }
+    @AppStorage("scansCount") private var scansCount = 0
     
     var body: some View {
         VStack(spacing: 24) {
@@ -49,6 +45,10 @@ struct ScannerView: View {
         }
         .onAppear {
             if VNDocumentCameraViewController.isSupported {
+                guard premium.canScan(currentScansNumber: scansCount) else {
+                    premium.isShowingPaywall.toggle()
+                    return
+                }
                 viewModel.startScanning()
             }
         }
@@ -64,10 +64,6 @@ extension ScannerView {
             Text("Document Scanner")
                 .font(.bold(28))
                 .foregroundStyle(.appText)
-            
-            Text("Mode: \(mode.displayName)")
-                .font(.medium(16))
-                .foregroundStyle(.appTextSecondary)
         }
     }
     
@@ -164,6 +160,11 @@ extension ScannerView {
                     }
                     
                     Button(action: {
+                        guard premium.canScan(currentScansNumber: scansCount) else {
+                            premium.isShowingPaywall.toggle()
+                            return
+                        }
+                        scansCount += 1
                         viewModel.startScanning()
                     }) {
                         HStack {
@@ -196,6 +197,11 @@ extension ScannerView {
                 }
             } else {
                 Button(action: {
+                    guard premium.canScan(currentScansNumber: scansCount) else {
+                        premium.isShowingPaywall.toggle()
+                        return
+                    }
+                    scansCount += 1
                     viewModel.startScanning()
                 }) {
                     HStack {
@@ -258,22 +264,5 @@ extension ScannerView {
             .background(.appSurface)
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
-    }
-}
-
-extension ScanMode {
-    var displayName: String {
-        switch self {
-        case .single: return "Single Page"
-        case .multi: return "Multi Page"
-        case .batch: return "Batch Scan"
-        }
-    }
-}
-
-#Preview {
-    NavigationStack {
-        ScannerView(mode: .single)
-            .environmentObject(Router())
     }
 }

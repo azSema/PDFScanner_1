@@ -1,0 +1,16 @@
+{
+  "images" : [
+    {
+      "filename" : "Default copy 4.jpg",
+      "idiom" : "iphone"
+    },
+    {
+      "filename" : "iPad copy 4.jpg",
+      "idiom" : "ipad"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

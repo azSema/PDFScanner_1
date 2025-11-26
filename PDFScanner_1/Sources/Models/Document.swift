@@ -10,14 +10,16 @@ struct DocumentDTO: Identifiable, Hashable {
     var url: URL?
     var isFavorite: Bool
     
-    init(id: String = UUID().uuidString,
-         pdf: PDFDocument? = nil,
-         name: String = "",
-         type: DocumentType = .pdf,
-         size: String = "",
-         date: Date = .now,
-         url: URL? = nil,
-         isFavorite: Bool = false) {
+    init(
+        id: String = UUID().uuidString,
+        pdf: PDFDocument? = nil,
+        name: String = "",
+        type: DocumentType = .pdf,
+        size: String = "",
+        date: Date = .now,
+        url: URL? = nil,
+        isFavorite: Bool = false
+    ) {
         self.id = id
         self.pdf = pdf
         self.name = name
@@ -45,11 +47,7 @@ struct DocumentDTO: Identifiable, Hashable {
                 return UIImage(systemName: "document.fill") ?? UIImage()
             }
             
-            guard let image = page.toImage() else {
-                print("⚠️ Could not create thumbnail image for document: \(name)")
-                return UIImage(systemName: "document.fill") ?? UIImage()
-            }
-            
+            let image = page.toImage()
             print("✅ Created thumbnail for document: \(name)")
             return image
             
@@ -57,10 +55,4 @@ struct DocumentDTO: Identifiable, Hashable {
             return UIImage(systemName: "document.fill") ?? UIImage()
         }
     }
-    
-}
-
-enum DocumentType: String {
-    case pdf
-    case doc
 }

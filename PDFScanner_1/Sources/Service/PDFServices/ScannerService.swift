@@ -1,27 +1,21 @@
 import SwiftUI
 import Combine
 import VisionKit
-
-enum ScannerState {
-    case idle
-    case scanning
-    case processing
-    case completed([UIImage])
-    case error(Error)
-}
+import PDFKit
 
 @MainActor
 final class ScannerService: ObservableObject {
-    
+    @Published var state: ScannerState = .idle
     @Published var isShowingScanner: Bool = false
     @Published var scannedImages: [UIImage] = []
     @Published var isProcessing: Bool = false
-    @Published var state: ScannerState = .idle
     @Published var isSupported: Bool = false
     
+    private let pdfStorage: PDFStorage
     private var cancellables = Set<AnyCancellable>()
     
-    init() {
+    init(pdfStorage: PDFStorage) {
+        self.pdfStorage = pdfStorage
         checkDeviceSupport()
         setupStateBindings()
     }
@@ -48,7 +42,6 @@ final class ScannerService: ObservableObject {
         state = .processing
         isProcessing = true
         
-        // Simulate processing time
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.completeScanProcessing(images: images)
         }
@@ -83,16 +76,15 @@ final class ScannerService: ObservableObject {
         isProcessing = false
         isShowingScanner = false
     }
-    
-    // MARK: - Private Methods
-    
-    private func checkDeviceSupport() {
+}
+
+private extension ScannerService {
+    func checkDeviceSupport() {
         isSupported = VNDocumentCameraViewController.isSupported
         DELogger.log(text: "Scanner device support: \(isSupported)")
     }
     
-    private func setupStateBindings() {
-        // Bind state changes to published properties
+    func setupStateBindings() {
         $state
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newState in
@@ -101,58 +93,60 @@ final class ScannerService: ObservableObject {
             .store(in: &cancellables)
     }
     
-    private func handleStateChange(_ newState: ScannerState) {
+    func handleStateChange(_ newState: ScannerState) {
         switch newState {
         case .idle:
             isProcessing = false
-            
         case .scanning:
             isProcessing = false
-            
         case .processing:
             isProcessing = true
-            
-        case .completed(let images):
+        case .completed(let document):
             isProcessing = false
-            scannedImages = images
-            DELogger.log(text: "Scan processing completed successfully")
-            
+            DELogger.log(text: "Scan processing completed for \(document.name)")
         case .error(let error):
             isProcessing = false
             DELogger.log(text: "Scanner error: \(error.localizedDescription)")
         }
     }
     
-    private func completeScanProcessing(images: [UIImage]) {
-        // Here you would typically:
-        // 1. Convert images to PDF
-        // 2. Save to storage
-        // 3. Add to recent documents
-        // 4. Generate thumbnails
-        
-        state = .completed(images)
-        
-        // TODO: Implement actual PDF conversion and saving
-        // For now, just log success
-        DELogger.log(text: "Scan processing completed with \(images.count) pages")
-    }
-}
-
-// MARK: - Scanner Errors
-
-enum ScannerError: LocalizedError {
-    case deviceNotSupported
-    case processingFailed
-    case savingFailed
-    
-    var errorDescription: String? {
-        switch self {
-        case .deviceNotSupported:
-            return "Document scanning is not supported on this device"
-        case .processingFailed:
-            return "Failed to process scanned images"
-        case .savingFailed:
-            return "Failed to save scanned document"
+    func completeScanProcessing(images: [UIImage]) {
+        guard let pdf = makePDF(from: images) else {
+            state = .error(ScannerError.processingFailed)
+            return
         }
+        
+        let document = DocumentDTO(
+            id: UUID().uuidString,
+            pdf: pdf,
+            name: makeDocumentName(),
+            type: .pdf,
+            date: .now,
+            url: nil,
+            isFavorite: false
+        )
+        
+        Task {
+            do {
+                try await pdfStorage.saveDocument(document)
+                state = .completed(document)
+                DELogger.log(text: "Scan processing completed and saved")
+            } catch {
+                state = .error(error)
+            }
+        }
+    }
+    
+    func makePDF(from images: [UIImage]) -> PDFDocument? {
+        let document = PDFDocument()
+        for (index, image) in images.enumerated() {
+            guard let page = PDFPage(image: image) else { return nil }
+            document.insert(page, at: index)
+        }
+        return document
+    }
+    
+    func makeDocumentName() -> String {
+        "Scan \(DateFormatter.localizedString(from: .now, dateStyle: .short, timeStyle: .short))"
     }
 }

@@ -110,6 +110,7 @@ struct HighlightPanel: View {
                 Button("Done") {
                     editService.showingHighlightPanel = false
                     editService.selectedTool = nil
+                    editService.isToolbarVisible = true
                 }
                 .font(.medium(14))
                 .foregroundColor(.appPrimary)

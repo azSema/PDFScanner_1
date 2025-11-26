@@ -4,7 +4,10 @@ struct MergeView: View {
     
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
+    @EnvironmentObject private var premium: PremiumManager
     @StateObject private var viewModel = MergeViewModel()
+    
+    @AppStorage("mergeCount") private var mergeCount = 0
     
     var body: some View {
         Group {
@@ -27,6 +30,10 @@ struct MergeView: View {
             }
         }
         .onAppear {
+            guard premium.canMerge(currentMergesNumber: mergeCount) else {
+                premium.isShowingPaywall.toggle()
+                return
+            }
             viewModel.router = router
             viewModel.startMerge()
         }
@@ -192,6 +199,7 @@ struct MergeView: View {
             
         case .arrangeOrder:
             Button("Merge") {
+                mergeCount += 1
                 viewModel.startMergeProcess()
             }
             .font(.medium(16))

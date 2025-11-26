@@ -131,39 +131,32 @@ final class EditService: ObservableObject {
     // MARK: - Tool Selection
     
     func selectTool(_ tool: EditorTool) {
-        // Deselect if same tool
         if selectedTool == tool {
             selectedTool = nil
             resetToolStates()
+            isToolbarVisible = true
             return
         }
         
         selectedTool = tool
         resetToolStates()
         
-        // Configure tool-specific states
         switch tool {
         case .highlight:
             showingHighlightPanel = true
+            isToolbarVisible = false
         case .addImage:
-            // Show image picker for user to select image
+            showingImageInsertMode = true
             showingImagePicker = true
-            print("🖼️ Showing image picker")
-            
-            // DEBUG: Uncomment line below to test with sample image instead of photo picker
-            // testCreateImageOverlay()
+            DELogger.log(text: "Add Image: waiting for user to pick image")
         case .signature:
             if currentSignature == nil {
-                // No signature - open creator
                 showingSignatureCreator = true
             } else {
-                // Has signature - show options
-                // For now, allow creating new signature by reopening creator
                 showingSignatureCreator = true
-                print("🔄 Reopening signature creator for new signature")
+                DELogger.log(text: "Reopening signature creator for new signature")
             }
         case .rotate:
-            // Rotate action happens immediately
             rotateCurrentPage()
         }
     }
@@ -173,13 +166,12 @@ final class EditService: ObservableObject {
         showingImageInsertMode = false
         showingSignatureInsertMode = false
         
-        // Clear active overlays
+        
         activeSignatureOverlay = nil
         activeImageOverlay = nil
         currentSignature = nil
         currentImage = nil
         
-        // Clear add page states
         showingAddPageActionSheet = false
         showingFileImporter = false
     }
@@ -206,88 +198,62 @@ final class EditService: ObservableObject {
     /// Creates an interactive overlay for image positioning before final placement in PDF
     /// Uses the same coordinate system and overlay approach as signatures for consistent UX
     func createImageOverlay(with image: UIImage) {
-        guard let document = pdfDocument,
-              let page = document.page(at: currentPageIndex) else {
-            print("❌ Failed to create image overlay - no document/page")
+        guard let page = currentPage else {
+            DELogger.log(text: "Add Image: no current page")
             return
         }
         
-        print("✨ Creating image overlay")
-        
-        // Calculate center position in PDF coordinates
         let pageRect = page.bounds(for: .mediaBox)
-        let centerX = pageRect.width / 2
-        let centerY = pageRect.height / 2
         
-        // Calculate image bounds (компактный начальный размер для лучшего UX)
-        let desiredMaxWidth: CGFloat = 120   
-        let desiredMaxHeight: CGFloat = 120   
+        // 10–20% ширины страницы, возьмём 15% как базу
+        let targetRelativeWidth: CGFloat = 0.15
+        let targetWidth = pageRect.width * targetRelativeWidth
         
         let imageSize = image.size
-        let scaleX = desiredMaxWidth / imageSize.width
-        let scaleY = desiredMaxHeight / imageSize.height
-        let scale = min(scaleX, scaleY, 0.6) // Компактный начальный размер
+        let baseScale = targetWidth / imageSize.width   // во сколько раз уменьшить оригинал
         
-        let finalWidth = imageSize.width * scale
-        let finalHeight = imageSize.height * scale
+        // Ограничиваем стартовый scale, чтобы не был слишком маленьким/большим
+        let initialScale = min(max(baseScale, 0.1), 0.5) // от 10% до 50% оригинала
         
-        print("📏 Image sizing: image(\(imageSize)) → final(\(finalWidth)x\(finalHeight)) scale(\(scale))")
-        
-        // Create annotation bounds centered on page
-        let bounds = CGRect(
-            x: centerX - finalWidth / 2,
-            y: centerY - finalHeight / 2,
-            width: finalWidth,
-            height: finalHeight
-        )
-        
-        // Create image annotation but DON'T add to page yet
-        let imageAnnotation = ImageAnnotation(bounds: bounds, image: image)
-        
-        // Create identifiable annotation for overlay
         let identifiableAnnotation = IdentifiablePDFAnnotation(
-            annotation: imageAnnotation,
-            position: CGPoint(x: centerX, y: centerY),
-            midPosition: CGPoint(x: 0.5, y: 0.5), // Normalized center - will be converted to view coordinates
-            boundingBox: bounds,
-            scale: 0.3  // Компактный начальный размер - пользователь может увеличить при необходимости
+            annotation: ImageAnnotation(bounds: .zero, image: image),
+            position: CGPoint(x: 0.5, y: 0.5),     // центр (нормализованные координаты)
+            midPosition: CGPoint(x: 0.5, y: 0.5),
+            boundingBox: CGRect(origin: .zero, size: imageSize),
+            scale: initialScale,
+            image: image
         )
         
-        // Set as active overlay (don't add to annotationsService yet)
         activeImageOverlay = identifiableAnnotation
-        currentImage = image
-        
-        hasUnsavedChanges = true
-        
-        print("📸 Image overlay created and ready for positioning")
+        showingImageInsertMode = true
+        DELogger.log(text: "Add Image: overlay created with relative width ~\(Int(targetRelativeWidth * 100))%")
+    }
+    
+    func updateImageOverlayPosition(to point: CGPoint, geometrySize: CGSize) {
+        guard var overlay = activeImageOverlay else { return }
+        overlay.boundingBox.origin = CGPoint(
+            x: point.x - overlay.boundingBox.width / 2,
+            y: point.y - overlay.boundingBox.height / 2
+        )
+        activeImageOverlay = overlay
     }
     
     func finalizeImageOverlay() {
         guard let overlay = activeImageOverlay,
-              let page = currentPage else {
-            print("❌ Cannot finalize image overlay - no overlay or page")
-            return
-        }
+              let page = currentPage else { return }
         
-        print("✅ Finalizing image overlay")
-        print("🔍 Before finalize - overlay bounds: \(overlay.annotation.bounds)")
-        print("🔍 Before finalize - overlay midPosition: \(overlay.midPosition)")
-        print("🔍 Before finalize - overlay scale: \(overlay.scale)")
-        
-        // Add the annotation to the PDF page
-        page.addAnnotation(overlay.annotation)
-        objectWillChange.send()  // Force UI update
-        
-        print("📄 Image finalized at PDF bounds: \(overlay.annotation.bounds)")
-        
-        // Clear the overlay after a short delay to allow PDF rendering
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.activeImageOverlay = nil
-            self?.currentImage = nil
-            print("🔄 Image overlay cleared after PDF render")
-        }
+        annotationsService.addImageAnnotation(
+            image: overlay.image ?? currentImage,
+            bounds: overlay.boundingBox,
+            on: page
+        )
         
         hasUnsavedChanges = true
+        activeImageOverlay = nil
+        showingImageInsertMode = false
+        selectedTool = nil
+        isToolbarVisible = true
+        DELogger.log(text: "Add Image: image placed")
     }
     
     func cancelImageOverlay() {
@@ -320,10 +286,10 @@ final class EditService: ObservableObject {
             let colorSpace = CGColorSpaceCreateDeviceRGB()
             let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: nil)!
             
-            ctx.cgContext.drawLinearGradient(gradient, 
-                                           start: CGPoint(x: 0, y: 0), 
-                                           end: CGPoint(x: 300, y: 200), 
-                                           options: [])
+            ctx.cgContext.drawLinearGradient(gradient,
+                                             start: CGPoint(x: 0, y: 0),
+                                             end: CGPoint(x: 300, y: 200),
+                                             options: [])
             
             // Add frame
             ctx.cgContext.setStrokeColor(UIColor.white.cgColor)
@@ -411,9 +377,10 @@ final class EditService: ObservableObject {
         let identifiableAnnotation = IdentifiablePDFAnnotation(
             annotation: imageAnnotation,
             position: CGPoint(x: centerX, y: centerY),
-            midPosition: CGPoint(x: 0.5, y: 0.5), // Normalized center - will be converted to view coordinates
+            midPosition: CGPoint(x: 0.5, y: 0.5),
             boundingBox: bounds,
-            scale: 0.3  // Компактный начальный размер - пользователь может увеличить при необходимости
+            scale: scale,
+            image: signature        // <- используем именно signature
         )
         
         // Set as active overlay (don't add to annotationsService yet)
@@ -556,7 +523,7 @@ final class EditService: ObservableObject {
         
         print("📄 Adding new page to document")
         
-        // Create a new PDF page from the image  
+        // Create a new PDF page from the image
         let newPage = PDFPage(image: image)
         
         guard let newPage = newPage else {

@@ -18,7 +18,7 @@ struct BackImage: View {
     }
     
     private var fullName: String {
-        switch deviceType {
+        switch DeviceManager.shared.deviceType {
         case .ipad:
             if orientation.isLandscape {
                 return baseName + ".hor"

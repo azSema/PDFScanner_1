@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DocumentActionsView: View {
+    
     @ObservedObject var actionsManager: DocumentActionsManager
     
     var body: some View {
