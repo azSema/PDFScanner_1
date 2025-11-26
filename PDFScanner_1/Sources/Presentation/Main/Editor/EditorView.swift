@@ -9,6 +9,7 @@ struct EditorView: View {
     
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
+    @EnvironmentObject private var premium: PremiumManager
     @StateObject private var editService = EditService()
     
     @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
@@ -29,6 +30,10 @@ struct EditorView: View {
             toolbarContent
         }
         .onAppear {
+            guard premium.canEdit() else {
+                premium.isShowingPaywall.toggle()
+                return
+            }
             editService.configure(documentId: documentId, pdfStorage: pdfStorage)
         }
         .background {

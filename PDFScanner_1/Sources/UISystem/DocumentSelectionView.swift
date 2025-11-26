@@ -6,6 +6,8 @@ struct DocumentSelectionView: View {
     
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
+    @EnvironmentObject private var premium: PremiumManager
+    
     @StateObject private var actionsManager = DocumentActionsManager()
     
     @State private var selectedDocuments: Set<String> = []
@@ -35,6 +37,7 @@ struct DocumentSelectionView: View {
         }
         .onAppear {
             actionsManager.configure(with: pdfStorage, router: router)
+            actionsManager.premium = premium
         }
         .background {
             DocumentActionsView(actionsManager: actionsManager)

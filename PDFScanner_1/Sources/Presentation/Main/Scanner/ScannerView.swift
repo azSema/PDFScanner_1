@@ -3,7 +3,10 @@ import VisionKit
 
 struct ScannerView: View {
     @EnvironmentObject private var router: Router
+    @EnvironmentObject private var premium: PremiumManager
     @StateObject private var viewModel = ScannerViewModel()
+    
+    @AppStorage("scansCount") private var scansCount = 0
     
     var body: some View {
         VStack(spacing: 24) {
@@ -42,6 +45,10 @@ struct ScannerView: View {
         }
         .onAppear {
             if VNDocumentCameraViewController.isSupported {
+                guard premium.canScan(currentScansNumber: scansCount) else {
+                    premium.isShowingPaywall.toggle()
+                    return
+                }
                 viewModel.startScanning()
             }
         }
@@ -153,6 +160,11 @@ extension ScannerView {
                     }
                     
                     Button(action: {
+                        guard premium.canScan(currentScansNumber: scansCount) else {
+                            premium.isShowingPaywall.toggle()
+                            return
+                        }
+                        scansCount += 1
                         viewModel.startScanning()
                     }) {
                         HStack {
@@ -185,6 +197,11 @@ extension ScannerView {
                 }
             } else {
                 Button(action: {
+                    guard premium.canScan(currentScansNumber: scansCount) else {
+                        premium.isShowingPaywall.toggle()
+                        return
+                    }
+                    scansCount += 1
                     viewModel.startScanning()
                 }) {
                     HStack {

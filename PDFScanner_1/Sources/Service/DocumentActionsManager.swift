@@ -6,6 +6,8 @@ import Combine
 @MainActor
 final class DocumentActionsManager: ObservableObject {
     
+    weak var premium: PremiumManager?
+    
     @Published var showingPreview = false
     @Published var showingRenameAlert = false
     @Published var showingDeleteAlert = false
@@ -18,6 +20,9 @@ final class DocumentActionsManager: ObservableObject {
     @Published var newDocumentName = ""
     @Published var shareItems: [Any] = []
     @Published var convertResultURLs: [URL] = []
+    
+    @AppStorage("convertCount") private var convertCount = 0
+    @AppStorage("mergeCount") private var mergeCount = 0
     
     private var pdfStorage: PDFStorage?
     private var router: Router?
@@ -41,8 +46,16 @@ final class DocumentActionsManager: ObservableObject {
         case .preview:
             handlePreview(document)
         case .edit:
+            guard let premium, premium.canEdit() else {
+                premium?.isShowingPaywall.toggle()
+                return
+            }
             handleEdit(document)
         case .convert:
+            guard let premium, premium.canConvert(currentConvertsNumber: convertCount) else {
+                premium?.isShowingPaywall.toggle()
+                return
+            }
             handleConvert(document)
         case .rename:
             handleRename(document)

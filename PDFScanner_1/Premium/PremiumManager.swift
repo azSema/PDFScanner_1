@@ -17,4 +17,37 @@ final class PremiumManager: ObservableObject {
             }
         }
     }
+    
 }
+
+extension PremiumManager {
+    
+    func canEdit() -> Bool {
+        return hasSubscription
+    }
+    
+    func canScan(currentScansNumber: Int) -> Bool {
+        if hasSubscription {
+            return true
+        }
+        let maxFreeScans = 3
+        return currentScansNumber < maxFreeScans
+    }
+    
+    func canMerge(currentMergesNumber: Int) -> Bool {
+        if hasSubscription {
+            return true
+        }
+        let maxFreeMerges = 2
+        return currentMergesNumber < maxFreeMerges
+    }
+    
+    func canConvert(currentConvertsNumber: Int) -> Bool {
+        if hasSubscription {
+            return true
+        }
+        let maxFreeConverts = 2
+        return currentConvertsNumber < maxFreeConverts
+    }
+}
+

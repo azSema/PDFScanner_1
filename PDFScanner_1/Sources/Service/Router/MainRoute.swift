@@ -10,6 +10,7 @@ enum MainRoute: AppDestination {
     case mergePreview(url: URL, arrangedDocuments: [DocumentDTO])
     case history
     case documentDetail(documentId: UUID)
+    case settings
     
     @ViewBuilder
     func makeView() -> some View {
@@ -32,6 +33,8 @@ enum MainRoute: AppDestination {
             HistoryView()
         case .documentDetail(let documentId):
             DocumentDetailView(documentId: documentId)
+        case .settings:
+            SettingsView()
         }
     }
 }

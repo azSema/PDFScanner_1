@@ -19,6 +19,9 @@ struct DashboardView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
+                        if !premium.hasSubscription {
+                            ProBanner()
+                        }
                         mainScanButton
                         documentsSection
                     }
@@ -29,6 +32,7 @@ struct DashboardView: View {
         }
         .onAppear {
             actionsManager.configure(with: pdfStorage, router: router)
+            actionsManager.premium = premium
             viewModel.configure(pdfStorage: pdfStorage)
         }
         .background {
@@ -91,10 +95,7 @@ private extension DashboardView {
             Spacer()
             
             Button {
-                // TODO: Реализовать флоу настроек
-                withAnimation {
-                    premium.isShowingPaywall.toggle()
-                }
+                router.push(.main(.settings))
             } label: {
                 Image(systemName: "gearshape.fill")
                     .font(.title2)
@@ -235,6 +236,10 @@ private extension DashboardView {
                 router.push(.main(.converter))
             },
             createMenuButton(icon: "pencil.and.outline") {
+                guard premium.canEdit() else {
+                    premium.isShowingPaywall.toggle()
+                    return
+                }
                 router.push(.main(.documentSelection(destination: .editor)))
             },
             createMenuButton(icon: "doc.on.doc") {
