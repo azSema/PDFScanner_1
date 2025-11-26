@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    
     @StateObject private var router: Router = .init()
     @StateObject private var premium: PremiumManager = .init()
     @StateObject private var pdfStorage: PDFStorage = .init()
@@ -13,6 +14,11 @@ struct ContentView: View {
                 MainFlow()
             }
         }
+        .overlay(content: {
+            if premium.isShowingPaywall {
+                PaywallView()
+            }
+        })
         .overlay {
             if premium.isProcessing {
                 AppLoaderView()

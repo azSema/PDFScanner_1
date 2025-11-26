@@ -5,6 +5,7 @@ import FloatingButton
 struct DashboardView: View {
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var pdfStorage: PDFStorage
+    @EnvironmentObject private var premium: PremiumManager
     
     @StateObject private var viewModel = DashboardViewModel()
     @StateObject private var actionsManager = DocumentActionsManager()
@@ -91,6 +92,9 @@ private extension DashboardView {
             
             Button {
                 // TODO: Реализовать флоу настроек
+                withAnimation {
+                    premium.isShowingPaywall.toggle()
+                }
             } label: {
                 Image(systemName: "gearshape.fill")
                     .font(.title2)
@@ -255,7 +259,7 @@ private extension DashboardView {
                 .foregroundStyle(.white)
         }
         .frame(width: 48, height: 48)
-        .background(.appSecondary)
+        .background(.appPrimary)
         .clipShape(.circle)
         .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
     }

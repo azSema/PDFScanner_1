@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "iPad landscape copy 2.jpg",
+      "idiom" : "ipad"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

@@ -1,5 +1,8 @@
 import SwiftUI
 
+let gradient: LinearGradient = .linearGradient(colors: [Color.init(hex: "#DB312C"),
+                                                        Color.init(hex: "#FF5351")], startPoint: .bottom, endPoint: .top)
+
 struct OnboardingFlow: View {
     
     @EnvironmentObject var router: Router
@@ -15,35 +18,163 @@ struct OnboardingFlow: View {
     
     @State private var orientation = UIDevice.current.orientation
     @State private var deviceType = DeviceManager.shared.deviceType
+    
+    @ViewBuilder
+    private var animationOverlay: some View {
+        switch step {
+        case .page1:
+            if deviceType == .iphoneSE {
+                AnimationView(item: deviceType == .iphoneLarge ? .onb1Iphone : .onb1Ipad,
+                              contentMode: .scaleAspectFill)
+                    .scaleEffect(0.96)
+                    .cornerRadius(60)
+                    .offset(y: -5)
+                    .overlay(content: {
+                        Image(.mask)
+                            .resizable()
+                            .scaledToFit()
+                            .offset(y: -20)
+                    })
+                    .frame(width: UIScreen.main.bounds.width - 120,
+                           height: UIScreen.main.bounds.height - 120)
+                    .offset(y: -35)
+                    .scaleEffect(0.98)
+            } else {
+                AnimationView(item: deviceType == .iphoneLarge ? .onb1Iphone : .onb1Ipad,
+                              contentMode: orientation.isLandscape ? .scaleAspectFit : .scaleAspectFill)
+                    .scaleEffect(0.96)
+                    .cornerRadius(60)
+                    .offset(y: -5)
+                    .overlay(content: {
+                        Image(.mask)
+                            .resizable()
+                            .scaledToFit()
+                            .offset(y: -30)
+                    })
+                    .frame(width: UIScreen.main.bounds.width - 100,
+                           height: UIScreen.main.bounds.height - 200)
+                    .offset(y: -50)
+                    .scaleEffect(0.98)
+            }
+        case .page2:
+            switch deviceType {
+            case .iphoneSE:
+                AnimationView(item: .signature)
+                    .frame(width: 150, height: 150)
+                    .offset(x: 70, y: 5)
+                    .rotationEffect(.degrees(-15))
+            case .iphoneLarge:
+                AnimationView(item: .signature)
+                    .frame(width: 150, height: 150)
+                    .offset(x: 70, y: 5)
+                    .rotationEffect(.degrees(-15))
+            case .ipad:
+                if orientation.isLandscape {
+                    AnimationView(item: .signature)
+                        .frame(width: 150, height: 150)
+                        .offset(x: 100, y: 20)
+                        .rotationEffect(.degrees(-15))
+                } else {
+                    AnimationView(item: .signature)
+                        .frame(width: 200, height: 200)
+                        .offset(x: 70, y: 100)
+                        .rotationEffect(.degrees(-15))
+                }
+            }
+            
+        case .page3:
+            if deviceType == .iphoneSE {
+                AnimationView(item: deviceType == .iphoneLarge ? .onb2Iphone : .onb2Ipad,
+                              contentMode: .scaleAspectFill)
+                    .scaleEffect(0.96)
+                    .cornerRadius(60)
+                    .offset(y: -5)
+                    .overlay(content: {
+                        Image(.mask)
+                            .resizable()
+                            .scaledToFit()
+                            .offset(y: -20)
+                    })
+                    .frame(width: UIScreen.main.bounds.width - 120,
+                           height: UIScreen.main.bounds.height - 120)
+                    .offset(y: -35)
+                    .scaleEffect(0.98)
+            } else {
+                AnimationView(item: deviceType == .iphoneLarge ? .onb2Iphone : .onb2Ipad,
+                              contentMode: orientation.isLandscape ? .scaleAspectFit : .scaleAspectFill)
+                    .scaleEffect(0.96)
+                    .cornerRadius(60)
+                    .offset(y: -5)
+                    .overlay(content: {
+                        Image(.mask)
+                            .resizable()
+                            .scaledToFit()
+                            .offset(y: -30)
+                    })
+                    .frame(width: UIScreen.main.bounds.width - 100,
+                           height: UIScreen.main.bounds.height - 200)
+                    .offset(y: -50)
+                    .scaleEffect(0.98)
+            }
+        case .page4:
+             AnimationView(item: .ocrScan)
+                .frame(width: 1, height: 1)
+        case .paywall:
+            if deviceType == .iphoneLarge {
+                VStack {
+                    AnimationView(item: .pdfFIle)
+                       .frame(width: 120, height: 120)
+                       .padding(.top, 50)
+                    Spacer()
+                }
+            }
+
+        }
+    }
         
     var body: some View {
         ZStack {
 
-            Color.green.ignoresSafeArea()
-            
-            VStack(spacing: deviceType == .iphoneSE ? 8 : 12) {
-                title(text: getTitle())
-                subtitle(text: getSubtitle())
-                    .frame(height: 50)
-                    .animation(nil, value: step)
-                VStack(spacing: 8) {
-                    VStack(spacing: 5) {
-                        OnboardPageControl(selected: $step)
-                        messageSection
-                    }
-
-                    nextButton
+            BackImage(baseName: step.inputModel().imageBaseName)
+                .overlay {
+                    animationOverlay
                 }
-                
-                FooterView(onRestore: {
-                    Task {
-                        await restoreTapped()
+                .ignoresSafeArea()
+            
+            VStack {
+                Spacer()
+                VStack(spacing: deviceType == .iphoneSE ? 8 : 12) {
+                    OnboardPageControl(selected: $step)
+                    title(text: getTitle())
+                    subtitle(text: getSubtitle())
+                        .frame(height: 50)
+                        .animation(nil, value: step)
+                    VStack(spacing: 8) {
+                        messageSection
+                        nextButton
                     }
-                })
+                    
+                    FooterView(color: Color.init(hex: "#AEAEB2"),  onRestore: {
+                        Task {
+                            await restoreTapped()
+                        }
+                    })
+                }
+                .padding()
+                .background {
+                    Rectangle()
+                        .fill(.white)
+                        .cornerRadius(16)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(.appBorder, lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.1), radius: 14)
+                }
+                .padding()
+                .frame(maxHeight: .infinity, alignment: .bottom)
             }
-            .padding(.horizontal)
-            .padding(.top)
-            .frame(maxHeight: .infinity, alignment: .bottom)
+            
         }
         .alert(isPresented: $isShowAlert) {
             Alert(title: Text(alertTitle), message: Text(alertMessage))
@@ -55,8 +186,8 @@ struct OnboardingFlow: View {
     private func subtitle(text: String) -> some View {
         Text(text)
             .frame(maxWidth: .infinity, alignment: .top)
-            .font(.system(size: 15, weight: .regular))
-            .foregroundStyle(.white)
+            .font(.system(size: 16, weight: .regular))
+            .foregroundStyle(.appTextSecondary)
             .multilineTextAlignment(.center)
             .overlay(alignment: .bottom) {
                 limittedButton
@@ -71,9 +202,9 @@ struct OnboardingFlow: View {
             router.finishOnboarding()
         } label: {
             Text("LIMITED BUTTON")
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .frame(maxWidth: .infinity, alignment: .center)
-                .foregroundStyle(.white)
+                .foregroundStyle(.appTextSecondary)
         }
     }
     
@@ -83,13 +214,12 @@ struct OnboardingFlow: View {
         VStack {
             if let top = chunks.first, let bottom = chunks.last {
                 Text(top)
-                    .foregroundStyle(.white)
-                    .font(.system(size: deviceType == .iphoneSE ? 26 : 32, weight: .medium))
+                    .font(.system(size: deviceType == .iphoneSE ? 26 : 28, weight: .medium))
                 Text(bottom)
-                    .foregroundStyle(.white)
-                    .font(.system(size: deviceType == .iphoneSE ? 26 : 32, weight: .bold))
+                    .font(.system(size: deviceType == .iphoneSE ? 22 : 24, weight: .medium))
             }
         }
+        .foregroundStyle(.black)
         .multilineTextAlignment(.center)
     }
     
@@ -99,26 +229,27 @@ struct OnboardingFlow: View {
             .frame(height: 48)
             .frame(maxWidth: .infinity, alignment: .leading)
             .font(.system(size: 15))
-            .foregroundStyle(.white)
+            .foregroundStyle(.appTextSecondary)
             .overlay(alignment: .trailing) {
                 Toggle(isTrialEnabled ? "" : "", isOn: $isTrialEnabled)
                     .opacity(step == .paywall ? 1 : 0)
             }
             .padding(.horizontal)
-            .background(.white.opacity(0.15))
-            .clipShape(Capsule())
+            .background(.appSecondary.opacity(0.3))
+            .cornerRadius(16)
     }
     
     private var nextButton: some View {
-        Button {
+        
+        return Button {
             nextTapped()
         } label: {
             Text(getButtonTitle())
                 .font(.system(size: 20, weight: .medium))
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .foregroundStyle(.red)
-                .background(Color.white)
+                .foregroundStyle(.white)
+                .background(gradient)
                 .cornerRadius(16)
             
         }
@@ -200,7 +331,7 @@ struct OnboardPageControl: View {
     @Namespace private var animation
     
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 2) {
             ForEach(OnboardingPage.allCases, id: \.self) { onboard in
                 standartControl(for: onboard)
             }
@@ -211,7 +342,7 @@ struct OnboardPageControl: View {
     private func standartControl(for page: OnboardingPage) -> some View {
         if page == selected {
             Rectangle()
-                .fill(.white)
+                .fill(gradient)
                 .frame(width: 13, height: 6)
                 .clipShape(
                     RoundedRectangle(cornerRadius: 50)
@@ -219,7 +350,8 @@ struct OnboardPageControl: View {
                 .matchedGeometryEffect(id: "IndicatorAnimationId", in: animation)
         } else {
             Circle()
-                .fill(.white.opacity(0.15))
+                .fill(gradient)
+                .opacity(0.35)
                 .frame(width: 6, height: 6)
         }
     }
