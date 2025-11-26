@@ -40,21 +40,41 @@ struct OnboardingFlow: View {
                     .offset(y: -35)
                     .scaleEffect(0.98)
             } else {
-                AnimationView(item: deviceType == .iphoneLarge ? .onb1Iphone : .onb1Ipad,
-                              contentMode: orientation.isLandscape ? .scaleAspectFit : .scaleAspectFill)
-                    .scaleEffect(0.96)
-                    .cornerRadius(60)
-                    .offset(y: -5)
-                    .overlay(content: {
-                        Image(.mask)
-                            .resizable()
-                            .scaledToFit()
-                            .offset(y: -30)
-                    })
-                    .frame(width: UIScreen.main.bounds.width - 100,
-                           height: UIScreen.main.bounds.height - 200)
-                    .offset(y: -50)
-                    .scaleEffect(0.98)
+                if deviceType == .ipad {
+                    AnimationView(item: .onb1Ipad,
+                                  contentMode: orientation.isLandscape ? .scaleAspectFit : .scaleAspectFill)
+                        .scaleEffect(0.95)
+                        .cornerRadius(60)
+                        .offset(y: -23)
+                        .frame(width: UIScreen.main.bounds.width - 155,
+                               height: UIScreen.main.bounds.height - 200)
+                        .overlay(content: {
+                            Image(.mask)
+                                .resizable()
+                                .scaledToFit()
+                                .offset(y: -30)
+                                .frame(width: UIScreen.main.bounds.width - 100,
+                                       height: UIScreen.main.bounds.height - 180)
+                        })
+                        .offset(y: -50)
+                        .scaleEffect(0.98)
+                } else {
+                    AnimationView(item: deviceType == .iphoneLarge ? .onb1Iphone : .onb1Ipad,
+                                  contentMode: orientation.isLandscape ? .scaleAspectFit : .scaleAspectFill)
+                        .scaleEffect(0.96)
+                        .cornerRadius(80)
+                        .offset(y: -5)
+                        .overlay(content: {
+                            Image(.mask)
+                                .resizable()
+                                .scaledToFit()
+                                .offset(y: -30)
+                        })
+                        .frame(width: UIScreen.main.bounds.width - 100,
+                               height: UIScreen.main.bounds.height - 200)
+                        .offset(y: -50)
+                        .scaleEffect(0.98)
+                }
             }
         case .page2:
             switch deviceType {
@@ -100,21 +120,41 @@ struct OnboardingFlow: View {
                     .offset(y: -35)
                     .scaleEffect(0.98)
             } else {
-                AnimationView(item: deviceType == .iphoneLarge ? .onb2Iphone : .onb2Ipad,
-                              contentMode: orientation.isLandscape ? .scaleAspectFit : .scaleAspectFill)
-                    .scaleEffect(0.96)
-                    .cornerRadius(60)
-                    .offset(y: -5)
-                    .overlay(content: {
-                        Image(.mask)
-                            .resizable()
-                            .scaledToFit()
-                            .offset(y: -30)
-                    })
-                    .frame(width: UIScreen.main.bounds.width - 100,
-                           height: UIScreen.main.bounds.height - 200)
-                    .offset(y: -50)
-                    .scaleEffect(0.98)
+                if deviceType == .ipad {
+                    AnimationView(item: .onb2Ipad,
+                                  contentMode: orientation.isLandscape ? .scaleAspectFit : .scaleAspectFill)
+                        .scaleEffect(0.95)
+                        .cornerRadius(60)
+                        .offset(y: -23)
+                        .frame(width: UIScreen.main.bounds.width - 155,
+                               height: UIScreen.main.bounds.height - 200)
+                        .overlay(content: {
+                            Image(.mask)
+                                .resizable()
+                                .scaledToFit()
+                                .offset(y: -30)
+                                .frame(width: UIScreen.main.bounds.width - 100,
+                                       height: UIScreen.main.bounds.height - 180)
+                        })
+                        .offset(y: -50)
+                        .scaleEffect(0.98)
+                } else {
+                    AnimationView(item: deviceType == .iphoneLarge ? .onb2Iphone : .onb2Ipad,
+                                  contentMode: orientation.isLandscape ? .scaleAspectFit : .scaleAspectFill)
+                        .scaleEffect(0.96)
+                        .cornerRadius(80)
+                        .offset(y: -5)
+                        .overlay(content: {
+                            Image(.mask)
+                                .resizable()
+                                .scaledToFit()
+                                .offset(y: -30)
+                        })
+                        .frame(width: UIScreen.main.bounds.width - 100,
+                               height: UIScreen.main.bounds.height - 200)
+                        .offset(y: -50)
+                        .scaleEffect(0.98)
+                }
             }
         case .page4:
              AnimationView(item: .ocrScan)
@@ -398,21 +438,21 @@ extension OnboardingModel {
         
         switch page {
         case .page1:
-            title = "PDF Tools\n& Scanner "
-            message = "Plan on taking the tests"
-            subtitle = "Choose the date and time\nof the test that suits you"
+            title = "Scan Documents\nInstantly"
+            message = "Point, shoot, done — it's that simple"
+            subtitle = "Transform any paper document into a\nhigh-quality PDF in seconds "
             imageBaseName = "onb1"
 
         case .page2:
-            title = "Smart Data\nWriting"
-            message = "Choose the best option"
-            subtitle = "Easily set test dates\nto organize your schedule"
+            title = "Edit\nLike a Pro"
+            message = "Everything you need"
+            subtitle = "Add signatures or annotate your PDFs\nwith professional tools"
             imageBaseName = "onb2"
 
         case .page3:
-            title = "Complete\nPDF Toolkit"
+            title = "Convert & Merge\nPDFs Easily"
             message = "Pass your tests"
-            subtitle = "Find and save the most\nsuitable centre nearby"
+            subtitle = "Convert PDF files and merge multiple\ndocuments exactly the way you need them"
             imageBaseName = "onb3"
 
         case .page4:

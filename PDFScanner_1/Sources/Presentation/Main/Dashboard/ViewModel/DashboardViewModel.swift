@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import UniformTypeIdentifiers
 import PDFKit
+import StoreKit
 
 @MainActor
 final class DashboardViewModel: ObservableObject {
@@ -19,6 +20,8 @@ final class DashboardViewModel: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
     private var didConfigure = false
+    
+    @AppStorage("didSHowReviewRequest") var didSHowReviewRequest = false
     
     // MARK: - Public API
     
@@ -70,6 +73,14 @@ final class DashboardViewModel: ObservableObject {
     
     func handleScanError(_ error: Error) {
         scannerService?.handleScanError(error)
+    }
+    
+    func showReview() {
+        if didSHowReviewRequest { return }
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            SKStoreReviewController.requestReview(in: windowScene)
+            didSHowReviewRequest = true
+        }
     }
 }
 

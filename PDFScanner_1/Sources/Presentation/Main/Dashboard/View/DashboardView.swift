@@ -34,6 +34,7 @@ struct DashboardView: View {
             actionsManager.configure(with: pdfStorage, router: router)
             actionsManager.premium = premium
             viewModel.configure(pdfStorage: pdfStorage)
+            viewModel.showReview()
         }
         .background {
             DocumentActionsView(actionsManager: actionsManager)
